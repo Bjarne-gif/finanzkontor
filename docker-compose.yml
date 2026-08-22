@@ -1,0 +1,36 @@
+services:
+  finanzkontor:
+    build: .
+    container_name: finanzkontor
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      # Alle privaten Daten (DB + Keyfile) liegen hier. Umzug = diesen Ordner mitnehmen.
+      - ${DATA_DIR:-./data}:/app/data
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    networks:
+      - default
+
+# --- Ein Service, mehr braucht es nicht. -------------------------------------
+#
+# Später hinter Nginx Proxy Manager (max. Sicherheit, kein Port nach außen):
+#   1) Den 'ports:'-Block oben entfernen (dann nur intern erreichbar).
+#   2) Das externe NPM-Netz eintragen, z. B.:
+#
+#        networks:
+#          - npm
+#
+#      und unten:
+#
+#        networks:
+#          npm:
+#            external: true
+#            name: <name-eures-npm-netzes>
+#
+#   3) Im NPM einen Proxy-Host auf  finanzkontor:8000  zeigen lassen.
+# -----------------------------------------------------------------------------
+
+networks:
+  default:
+    name: finanzkontor_net

@@ -1,0 +1,211 @@
+/* ============================================================
+   THEMES – Farbschemata über CSS Custom Properties.
+
+   Standard = Graphit (:root). Neues Theme: einen Block kopieren,
+   in themes.js eintragen, fertig. Kein weiterer Code.
+   ============================================================ */
+
+:root {
+  /* Typo & Form (themeübergreifend) */
+  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-ui: "Inter", ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
+  --font-num: "JetBrains Mono", ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+
+  --radius: 9px;
+  --radius-sm: 6px;
+  --radius-lg: 15px;
+  --gap: 20px;
+  --topbar-h: 60px;
+  --statusbar-h: 34px;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ---- GRAPHIT (Standard): fast monochrom, ruhig, Stahlblau-Akzent ---- */
+:root,
+[data-theme="graphit"] {
+  --bg:          #121315;
+  --bg-grain:    #17181b;
+  --surface:     #1a1c1f;
+  --surface-2:   #212327;
+  --surface-3:   #292c31;
+  --border:      #33373d;
+  --border-soft: #26292e;
+  --text:        #e8eaed;
+  --text-dim:    #9aa0a8;
+  --text-faint:  #6b7178;
+  --accent:      #8fb3c9;
+  --accent-soft: rgba(143, 179, 201, 0.13);
+  --accent-line: rgba(143, 179, 201, 0.45);
+  --positive:    #6fb98a;
+  --negative:    #d97a76;
+  --shadow:      0 18px 46px -22px rgba(0, 0, 0, 0.7);
+  color-scheme: dark;
+}
+
+/* ---- KOBALT: tiefes Indigo, kühl & technisch ---- */
+[data-theme="kobalt"] {
+  --bg:          #0d1120;
+  --bg-grain:    #111634;
+  --surface:     #151b2e;
+  --surface-2:   #1c2540;
+  --surface-3:   #232e4f;
+  --border:      #2c3a63;
+  --border-soft: #212c4c;
+  --text:        #e6eaf6;
+  --text-dim:    #94a0c4;
+  --text-faint:  #64708f;
+  --accent:      #7c8cff;
+  --accent-soft: rgba(124, 140, 255, 0.14);
+  --accent-line: rgba(124, 140, 255, 0.5);
+  --positive:    #55c98a;
+  --negative:    #ef7079;
+  --shadow:      0 18px 46px -22px rgba(0, 0, 0, 0.75);
+  color-scheme: dark;
+}
+
+/* ---- PETROL: tiefes Teal mit Mint-Akzent ---- */
+[data-theme="petrol"] {
+  --bg:          #071a1c;
+  --bg-grain:    #082022;
+  --surface:     #0d2528;
+  --surface-2:   #123033;
+  --surface-3:   #163b3e;
+  --border:      #1f4a4d;
+  --border-soft: #17393c;
+  --text:        #dcefec;
+  --text-dim:    #82aaa6;
+  --text-faint:  #557976;
+  --accent:      #4fd6c0;
+  --accent-soft: rgba(79, 214, 192, 0.13);
+  --accent-line: rgba(79, 214, 192, 0.5);
+  --positive:    #57c98b;
+  --negative:    #ef7071;
+  --shadow:      0 18px 46px -22px rgba(0, 0, 0, 0.7);
+  color-scheme: dark;
+}
+
+/* ---- KONTOR: Schiefer + Messing ---- */
+[data-theme="kontor"] {
+  --bg:          #0e151d;
+  --bg-grain:    #101a24;
+  --surface:     #16212d;
+  --surface-2:   #1c2a38;
+  --surface-3:   #223344;
+  --border:      #2a3d4f;
+  --border-soft: #21303f;
+  --text:        #e7eef5;
+  --text-dim:    #8ba0b4;
+  --text-faint:  #5f7387;
+  --accent:      #c9a227;
+  --accent-soft: rgba(201, 162, 39, 0.14);
+  --accent-line: rgba(201, 162, 39, 0.55);
+  --positive:    #47b98a;
+  --negative:    #e0686b;
+  --shadow:      0 18px 46px -22px rgba(0, 0, 0, 0.75);
+  color-scheme: dark;
+}
+
+/* ---- TRESOR: warmes Dunkel + Champagner-Gold (gehoben, gedämpft) ---- */
+[data-theme="tresor"] {
+  --bg:          #14110c;
+  --bg-grain:    #1a150d;
+  --surface:     #1c1811;
+  --surface-2:   #241f16;
+  --surface-3:   #2e271b;
+  --border:      #3d3524;
+  --border-soft: #2b2519;
+  --text:        #efe7d6;
+  --text-dim:    #b3a488;
+  --text-faint:  #7d715a;
+  --accent:      #d9b877;
+  --accent-soft: rgba(217, 184, 119, 0.13);
+  --accent-line: rgba(217, 184, 119, 0.5);
+  --positive:    #86bd8f;
+  --negative:    #d98a76;
+  --shadow:      0 18px 48px -22px rgba(0, 0, 0, 0.8);
+  color-scheme: dark;
+}
+
+/* ---- KONSOLE: ruhiger Terminal-Look, gedämpftes Grün ---- */
+[data-theme="konsole"] {
+  --bg:          #0b0f0c;
+  --bg-grain:    #0e130f;
+  --surface:     #121813;
+  --surface-2:   #18201a;
+  --surface-3:   #1f2922;
+  --border:      #2a382e;
+  --border-soft: #1e2822;
+  --text:        #d7e4d8;
+  --text-dim:    #8fa593;
+  --text-faint:  #5f7365;
+  --accent:      #83bd8e;
+  --accent-soft: rgba(131, 189, 142, 0.12);
+  --accent-line: rgba(131, 189, 142, 0.42);
+  --positive:    #86c78f;
+  --negative:    #d98a80;
+  --shadow:      0 18px 46px -22px rgba(0, 0, 0, 0.8);
+  color-scheme: dark;
+}
+
+/* ---- MALVE: staubiges Mauve, elegant & ruhig ---- */
+[data-theme="malve"] {
+  --bg:          #16111a;
+  --bg-grain:    #1b1420;
+  --surface:     #1e1823;
+  --surface-2:   #26202d;
+  --surface-3:   #2f2838;
+  --border:      #3d3348;
+  --border-soft: #2b2434;
+  --text:        #ece6f0;
+  --text-dim:    #a99cb4;
+  --text-faint:  #766b80;
+  --accent:      #c49ad0;
+  --accent-soft: rgba(196, 154, 208, 0.13);
+  --accent-line: rgba(196, 154, 208, 0.45);
+  --positive:    #7cc191;
+  --negative:    #e07f88;
+  --shadow:      0 18px 46px -22px rgba(0, 0, 0, 0.75);
+  color-scheme: dark;
+}
+
+/* ---- PAPIER: heller Tag-Modus, warm ---- */
+[data-theme="papier"] {
+  --bg:          #efe9dd;
+  --bg-grain:    #eae3d4;
+  --surface:     #f7f3ea;
+  --surface-2:   #fffdf8;
+  --surface-3:   #f1ead9;
+  --border:      #d8cdb6;
+  --border-soft: #e3dac7;
+  --text:        #26221b;
+  --text-dim:    #6d6455;
+  --text-faint:  #a1937c;
+  --accent:      #9a6b1f;
+  --accent-soft: rgba(154, 107, 31, 0.12);
+  --accent-line: rgba(154, 107, 31, 0.5);
+  --positive:    #2f8f63;
+  --negative:    #c0473f;
+  --shadow:      0 16px 40px -24px rgba(60, 45, 20, 0.45);
+  color-scheme: light;
+}
+
+/* ---- ALABASTER: helles, kühles Weiß mit Schieferblau ---- */
+[data-theme="alabaster"] {
+  --bg:          #eceef1;
+  --bg-grain:    #e6e9ee;
+  --surface:     #f6f7f9;
+  --surface-2:   #ffffff;
+  --surface-3:   #eef0f3;
+  --border:      #d4d9e0;
+  --border-soft: #e1e5ea;
+  --text:        #23272e;
+  --text-dim:    #626a76;
+  --text-faint:  #97a0ac;
+  --accent:      #4f6f8f;
+  --accent-soft: rgba(79, 111, 143, 0.12);
+  --accent-line: rgba(79, 111, 143, 0.4);
+  --positive:    #2f8f63;
+  --negative:    #c0473f;
+  --shadow:      0 16px 40px -24px rgba(40, 55, 75, 0.35);
+  color-scheme: light;
+}

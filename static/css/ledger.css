@@ -1,0 +1,125 @@
+/* Finanzkontor – Ledger (Stufe 1): Excel-Layout. Nutzt Theme-Variablen aus themes.css/base.css. */
+
+.ledger2{max-width:1240px;min-width:min-content;margin:0 auto;display:flex;gap:28px;align-items:flex-start}
+@media(max-width:1000px){.ledger2{flex-direction:column}}
+.leftcol{flex:1;min-width:calc(18px + 168px + 150px + var(--mw,112px) + 26px + 7px + var(--yw,132px))}.evalcol{flex:none}
+.areatitle{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--text-faint);font-weight:700;padding:0 4px 9px}
+.rp{display:flex;gap:7px}
+.rp.hidden{display:none}
+.mbox{flex:1;min-width:0;display:flex;align-items:center;background:var(--surface);border-left:1px solid var(--border);border-right:1px solid var(--border)}
+.ybox{width:var(--yw,132px);flex:none;display:flex;align-items:center;justify-content:flex-end;background:var(--surface);border-left:1px solid var(--border);border-right:1px solid var(--border)}
+.rp:not(.first) .mbox,.rp:not(.first) .ybox{border-top:1px solid var(--border-soft)}
+.rp.first .mbox,.rp.first .ybox{border-top:1px solid var(--border);border-radius:var(--radius-lg) var(--radius-lg) 0 0}
+.rp.last .mbox,.rp.last .ybox{border-bottom:1px solid var(--border);border-radius:0 0 var(--radius-lg) var(--radius-lg)}
+.rp.spacer .mbox,.rp.spacer .ybox{border-top:none;height:9px}
+.rp.ghead .mbox,.rp.ghead .ybox{border-top:1px solid var(--border);background:var(--surface-2)}
+.rp.hd .mbox,.rp.hd .ybox{background:var(--surface-2)}
+.emptyrow{display:flex;gap:7px}.ebox{min-height:150px;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--surface);display:flex;align-items:center;justify-content:center}.ebox-main{flex:1}.ebox-year{width:var(--yw,132px)}.ebox-emain{width:calc(84px + var(--emw,150px) + 28px)}.ebox-eyear{width:calc(var(--eyw,184px) + 28px)}.ebox span{color:var(--text-dim);font-size:14px}
+.emptyc{text-align:center;color:var(--text-dim);width:100%}
+.mGrip{width:18px;flex:none;text-align:center;color:var(--text-faint);cursor:grab;font-size:11px;opacity:.35;user-select:none}
+.rp.row:hover .mGrip{opacity:.8}
+.mInfo{width:168px;flex:none;padding:2px 6px}
+.mName{flex:1;min-width:150px;padding:2px 4px;display:flex;align-items:center;gap:8px}
+.mAmt{width:var(--mw,112px);flex:none;text-align:right;padding:2px 6px}
+.mMenu{width:26px;flex:none;text-align:center}
+.ybox .yw{width:100%;text-align:right;padding:2px 8px;white-space:nowrap}
+.rp.hd .mGrip,.rp.hd .mInfo,.rp.hd .mAmt,.rp.hd .mName,.rp.hd .yhd{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);padding-top:9px;padding-bottom:9px}
+.rp.hd .mGrip{opacity:0}
+.rp.hd .yhd{width:100%;text-align:right;padding:9px 8px}
+.ghfull{flex:1;display:flex;align-items:center;gap:10px;padding:6px 6px}
+.dot{width:9px;height:9px;border-radius:50%;flex:none}
+.grp-income .dot{background:var(--positive)}.grp-expense .dot{background:var(--negative)}
+.ghfull input{font:inherit;background:transparent;border:1px solid transparent;border-radius:6px;padding:4px 6px;color:var(--text-dim);text-transform:uppercase;font-weight:700;letter-spacing:.05em;font-size:14px;width:100%}
+.ghfull input:hover{border-color:var(--border-soft)}.ghfull input:focus{outline:none;border-color:var(--accent-line);color:var(--text)}
+.catdel{border:none;background:transparent;color:var(--text-faint);cursor:pointer;font-size:16px;width:24px;height:24px;border-radius:var(--radius-sm);opacity:.5}
+.rp.ghead:hover .catdel{opacity:1}.catdel:hover{color:var(--negative);background:var(--surface-3)}
+.cInfo input,.cName input{width:100%;font:inherit;background:transparent;border:1px solid transparent;border-radius:var(--radius-sm);padding:5px 7px;color:var(--text);min-width:0}
+.cInfo input{font-size:12.5px;color:var(--text-dim)}.cInfo input::placeholder{color:var(--text-faint)}
+.cInfo input:hover,.cName input:hover{border-color:var(--border-soft);background:var(--surface)}
+.cInfo input:focus,.cName input:focus{outline:none;border-color:var(--accent-line);background:var(--surface)}
+.rp.inactive{opacity:.5}
+.rp.inactive .cInfo input,.rp.inactive .cName input,.rp.inactive .val{text-decoration:line-through}
+.rp.dragging{opacity:.4}
+.val{font-family:var(--font-num);font-variant-numeric:tabular-nums;font-size:13.5px;cursor:text;padding:5px 6px;border-radius:var(--radius-sm);border:1px solid transparent;display:inline-block;text-align:right;white-space:nowrap}
+.val:hover{border-color:var(--border-soft);background:var(--surface)}
+.val.drv{color:var(--text-faint)}
+.cedit{width:100%;font:inherit;font-family:var(--font-num);text-align:right;font-size:13.5px;color:var(--text);background:var(--surface);border:1px solid var(--accent-line);border-radius:var(--radius-sm);padding:4px 6px}
+.dots{border:none;background:transparent;color:var(--text-faint);cursor:pointer;font-size:15px;width:24px;height:24px;border-radius:var(--radius-sm)}
+.rp.row:hover .mbox,.rp.row:hover .ybox{background:var(--surface-2)}
+.rp.row:hover .dots{color:var(--text-dim)}.dots:hover{background:var(--surface-3)!important;color:var(--text)}
+.rp.sum .mbox,.rp.sum .ybox{background:var(--surface-3)}
+.sumlbl{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--text-dim);font-weight:600;padding:9px 6px}
+.sumv{font-family:var(--font-num);font-variant-numeric:tabular-nums;font-weight:600;font-size:14px;padding:9px 6px;text-align:right;display:inline-block;width:100%;white-space:nowrap}
+.pos{color:var(--positive)}.neg{color:var(--negative)}
+.xadd{display:inline-flex;gap:6px;padding:7px 10px;font:inherit;font-size:12.5px;color:var(--text-dim);background:none;border:none;cursor:pointer}
+.xadd:hover{color:var(--accent)}
+.addfwrap{display:flex;gap:8px;padding:8px;align-items:center;width:100%}
+.addfwrap input{font:inherit;font-size:12.5px;color:var(--text);background:var(--surface-2);border:1px solid var(--border-soft);border-radius:var(--radius-sm);padding:6px 7px;min-width:0}
+.addfwrap .an-note{width:150px}.addfwrap .an-name{flex:1}.addfwrap .an-amt{width:84px;font-family:var(--font-num);text-align:right}
+.addfwrap .go{background:var(--accent);color:#10151b;border:none;font-weight:500;cursor:pointer;border-radius:var(--radius-sm);padding:6px 12px}
+.an-amt-y{width:100%;font:inherit;font-size:12.5px;font-family:var(--font-num);text-align:right;color:var(--text);background:var(--surface-2);border:1px solid var(--border-soft);border-radius:var(--radius-sm);padding:6px 7px}
+.an-amt-y:focus{outline:none;border-color:var(--accent-line)}
+.ybox .ywf{width:100%;padding:0 8px}
+.xaddcat{display:flex;gap:16px;justify-content:flex-start;padding:16px 4px 2px}
+.xaddcat button{font:inherit;font-size:12.5px;color:var(--text-dim);background:none;border:none;cursor:pointer}.xaddcat button:hover{color:var(--accent)}
+/* Zusammenfassung – gleiche Bänder wie links, wächst mit Inhalt */
+.evalwrap{display:flex;gap:7px}.evalbox{border:1px solid var(--accent-line);border-radius:var(--radius-lg);overflow:hidden;background:var(--surface)}
+.evalbox.surplus{border-color:var(--positive)}.evalbox.loss{border-color:var(--negative)}.evalbox.zero{border-color:var(--border)}
+.er{display:flex;align-items:baseline;padding:6px 14px}
+.er.first{background:var(--surface-2);align-items:center;padding:9px 14px}
+.er.spacer{height:9px;padding:0}
+.er.sum{background:var(--surface-3);align-items:center;padding:11px 14px}
+.ek{width:84px;flex:none;font-size:12.5px;color:var(--text-dim)}
+.er.sum .ek{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);font-weight:600}
+.em,.ey{flex:none;text-align:right;font-family:var(--font-num);font-variant-numeric:tabular-nums;font-size:13px;color:var(--text);white-space:nowrap;padding:0 6px}
+.em{width:var(--emw,150px)}.ey{width:var(--eyw,184px)}
+.em.hdl,.ey.hdl{font-size:9.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--text-faint);font-family:var(--font-ui);text-align:right}
+.er.sum .em,.er.sum .ey{font-size:20px}
+.em.pos,.ey.pos{color:var(--positive)}.em.neg,.ey.neg{color:var(--negative)}.em.zero,.ey.zero{color:var(--text)}
+.ctx{position:fixed;z-index:60;min-width:170px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:6px;opacity:0;transform:translateY(-4px);pointer-events:none;transition:opacity .14s,transform .14s}
+.ctx.open{opacity:1;transform:none;pointer-events:auto}
+.ctx button{display:flex;width:100%;text-align:left;font:inherit;font-size:13.5px;color:var(--text);background:none;border:none;padding:8px 10px;border-radius:var(--radius-sm);cursor:pointer}
+.ctx button:hover{background:var(--surface-2)}.ctx button.danger{color:var(--negative)}.ctx .sep{height:1px;background:var(--border-soft);margin:4px 2px}
+
+/* Read-only (Stufe A): Inputs wirken statisch */
+input[readonly]{cursor:default}
+input[readonly]:hover{border-color:transparent!important;background:transparent!important}
+.ledger2 .lg-load{padding:24px;color:var(--text-dim)}
+
+/* Read-only Beträge (Stufe A): kein Klick-Cursor, kein Hover */
+.ledger2.ro .val{cursor:default}
+.ledger2.ro .val:hover{border-color:transparent;background:transparent}
+
+/* Geister-Zeile (Anlegen direkt in der Tabelle) */
+.rp.ghost .mbox,.rp.ghost .ybox{border-top:1px dashed var(--border-soft)}
+.rp.ghost:hover .mbox,.rp.ghost:hover .ybox{background:var(--surface-2)}
+.gplus{color:var(--text-faint);opacity:.7;font-size:14px}
+.g-note,.g-name{width:100%;font:inherit;background:transparent;border:1px solid transparent;border-radius:var(--radius-sm);padding:5px 7px;color:var(--text);min-width:0}
+.g-note{font-size:12.5px;color:var(--text-dim)}
+.g-note::placeholder,.g-name::placeholder{color:var(--text-faint)}
+.g-name::placeholder{font-style:italic}
+.g-note:hover,.g-name:hover,.g-m:hover,.g-y:hover{border-color:var(--border-soft);background:var(--surface)}
+.g-note:focus,.g-name:focus,.g-m:focus,.g-y:focus{outline:none;border-color:var(--accent-line);background:var(--surface)}
+.g-m,.g-y{width:100%;font:inherit;font-family:var(--font-num);text-align:right;font-size:13.5px;color:var(--text);background:transparent;border:1px solid transparent;border-radius:var(--radius-sm);padding:5px 6px}
+.g-m::placeholder,.g-y::placeholder{color:var(--text-faint)}
+
+/* "+" der Geister-Zeile als klickbarer Anlegen-Button */
+button.gplus{background:none;border:none;padding:0;width:18px;flex:none;text-align:center;color:var(--text-faint);cursor:pointer;font-size:15px;line-height:1;opacity:.7}
+button.gplus:hover{opacity:1;color:var(--accent)}
+
+/* In-App-Dialog (kein Browser-Popup) */
+.fk-modal-ov{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:20px}
+.fk-modal{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:0 20px 50px rgba(0,0,0,.5);max-width:420px;width:100%;padding:22px}
+.fk-modal-msg{font-size:14px;color:var(--text);line-height:1.55;margin-bottom:20px}
+.fk-modal-act{display:flex;gap:10px;justify-content:flex-end}
+.fk-mbtn{font:inherit;font-size:13px;padding:8px 16px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface-2);color:var(--text);cursor:pointer}
+.fk-mbtn:hover{background:var(--surface-3)}
+.fk-mbtn.danger{background:var(--negative);border-color:var(--negative);color:#fff}
+.fk-mbtn.danger:hover{filter:brightness(1.08)}
+
+/* Editierbare Betragsfelder in bestehenden Zeilen */
+.rval{width:100%;font:inherit;font-family:var(--font-num);font-variant-numeric:tabular-nums;text-align:right;font-size:13.5px;color:var(--text);background:transparent;border:1px solid transparent;border-radius:var(--radius-sm);padding:5px 6px}
+.rval.drv{color:var(--text-faint)}
+.rval:hover{border-color:var(--border-soft);background:var(--surface)}
+.rval:focus{outline:none;border-color:var(--accent-line);background:var(--surface)}
+.rp.inactive .rval{text-decoration:line-through}
