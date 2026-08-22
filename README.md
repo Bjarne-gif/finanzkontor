@@ -4,9 +4,11 @@ Browserbasiertes Tool für Einnahmen, Kosten und Vermögen – selbst gehostet,
 dockerfähig, Daten verschlüsselt. Modularer Aufbau: jede Funktion ist ein
 eigener Baustein, alle laufen im selben Rahmen.
 
-**Stand:** v0.2.0 · Stufe 1 (Ledger). Zusätzlich zum Gerüst: Kategorien &
-Posten mit Betrag + Intervall, Live-Berechnung von Einnahmen/Kosten/Überschuss
-(inkl. „ohne Sprit“), Autospeichern und gemerkter Bearbeitungsstand.
+**Stand:** v0.3.0 · Stufe 1 (Ledger) abgeschlossen. Kategorien & Posten mit
+Betrag + Intervall (monatlich/jährlich), Beträge kreuzweise editierbar,
+zeilenweises Anlegen direkt in der Tabelle, volle Tastatur-/Tab-Bedienung,
+Sortieren per Drag & Menü, Inaktiv/Löschen, Live-Berechnung von
+Einnahmen/Kosten/Überschuss, Autospeichern und gemerkter Bearbeitungsstand.
 
 ## Schnellstart (Docker)
 
@@ -18,12 +20,39 @@ docker compose up -d
 Dann im Browser: `http://<host>:8000`. Beim ersten Start legst du dein
 Passwort fest.
 
-### Lokal ohne Docker
+### Lokal ohne Docker (z. B. direkt auf dem Raspberry Pi)
+
+Empfohlen mit virtueller Umgebung (venv) – hält die Abhängigkeiten sauber vom
+System getrennt und umgeht das „externally-managed-environment“ neuerer Debian-/
+Pi-OS-Versionen:
 
 ```bash
-pip install -r requirements.txt
-python app.py             # http://localhost:8000
+python3 -m venv .venv            # virtuelle Umgebung anlegen
+source .venv/bin/activate        # aktivieren (Windows: .venv\Scripts\activate)
+pip install -r requirements.txt  # Abhängigkeiten IN die venv installieren
+python3 app.py                   # starten -> http://localhost:8000
 ```
+
+Beenden mit `Strg+C`, venv verlassen mit `deactivate`. Beim nächsten Start
+genügt `source .venv/bin/activate && python3 app.py`.
+
+> **`python` vs. `python3`:** Auf Raspberry Pi OS / Debian heißt der Interpreter
+> `python3` – ein blankes `python` existiert dort oft gar nicht (früher zeigte es
+> auf Python 2). Zum Anlegen der venv brauchst du daher `python3`. *Innerhalb*
+> einer aktivierten venv zeigen `python` und `python3` beide auf dieselbe
+> Python-3-Version – dort ist es egal, welches du nimmst. Im Zweifel: `python3`.
+
+#### Falls beim Einrichten etwas hakt
+
+- **`error: externally-managed-environment`** beim `pip install`: Genau dafür ist
+  die venv oben da – installiere *innerhalb* der aktivierten venv, nicht systemweit.
+- **`python3 -m venv` fehlt** („No module named venv“): einmalig
+  `sudo apt install python3-venv`.
+- **`cryptography` will bei sehr neuem Python (3.13/3.14) aus dem Quellcode bauen**
+  und bricht ab: entweder Build-Werkzeuge nachrüsten
+  (`sudo apt install build-essential libffi-dev`) oder in `requirements.txt` die
+  Zeile `cryptography==43.0.1` auf `cryptography>=43.0.1` lockern, damit pip ein
+  passendes fertiges Paket zieht. Im Docker-Image (Python 3.12) tritt das nicht auf.
 
 ## Deine Daten liegen in `data/`
 
