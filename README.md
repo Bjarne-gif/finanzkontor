@@ -4,7 +4,7 @@ Browserbasiertes Tool für Einnahmen, Kosten und Vermögen – selbst gehostet,
 dockerfähig, Daten verschlüsselt. Modularer Aufbau: jede Funktion ist ein
 eigener Baustein, alle laufen im selben Rahmen.
 
-**Stand:** v0.3.0 · Stufe 1 (Ledger) abgeschlossen. Kategorien & Posten mit
+**Stand:** v1.0.0 · Stufe 1 (Ledger) abgeschlossen. Kategorien & Posten mit
 Betrag + Intervall (monatlich/jährlich), Beträge kreuzweise editierbar,
 zeilenweises Anlegen direkt in der Tabelle, volle Tastatur-/Tab-Bedienung,
 Sortieren per Drag & Menü, Inaktiv/Löschen, Live-Berechnung von
