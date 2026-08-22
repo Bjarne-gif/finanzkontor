@@ -100,8 +100,9 @@ function mount(root, ctx) {
     const pf = pendingFocus; pendingFocus = null;
     const el = selByDesc(pf.desc); if (!el) return;
     el.focus();
-    if (isAmt(el) && el.select) el.select();
-    else if (el.setSelectionRange) { try { const L = el.value.length; const c = pf.caret != null ? pf.caret : L; el.setSelectionRange(c, c); } catch (e) {} }
+    if (pf.caret != null && el.setSelectionRange) { try { el.setSelectionRange(pf.caret, pf.caret); } catch (e) {} }
+    else if (isAmt(el) && el.select) el.select();
+    else if (el.setSelectionRange) { try { const L = el.value.length; el.setSelectionRange(L, L); } catch (e) {} }
   }
 
   // ---- Geister-Zeilen (Multi-Draft) ----
@@ -113,11 +114,28 @@ function mount(root, ctx) {
     ui.drafts[cid] = a;
   }
   const getDraft = (cid, k) => (ui.drafts[cid] || []).find((x) => x.k === k);
-  function maybeSpawn(cid, k, field, caret) {
+  function ghostRowHTML(cid, gd) {
+    return rp("ghost",
+      `<button class="mGrip gplus" data-gadd="${cid}" data-gk="${gd.k}" title="Posten anlegen" tabindex="-1">+</button>`
+      + `<span class="mInfo cInfo"><input class="g-note" data-gc="${cid}" data-gk="${gd.k}" placeholder="Kommentar…" value="${esc(gd.note || "")}" /></span>`
+      + `<span class="mName cName"><input class="g-name" data-gc="${cid}" data-gk="${gd.k}" placeholder="Neuer Posten…" value="${esc(gd.name || "")}" /></span>`
+      + `<span class="mAmt"><input class="g-m" data-gc="${cid}" data-gk="${gd.k}" inputmode="decimal" placeholder="0,00" value="${esc(gd.m || "")}" /></span>`
+      + `<span class="mMenu"></span>`,
+      `<span class="yw"><input class="g-y" data-gc="${cid}" data-gk="${gd.k}" inputmode="decimal" placeholder="0,00" value="${esc(gd.y || "")}" /></span>`);
+  }
+
+  // Neue leere Zeile chirurgisch anhängen – ohne das aktuell getippte Feld
+  // neu aufzubauen (verhindert Cursor-/Zeichen-Verlust beim Tippen).
+  function maybeSpawn(cid, k, rowEl) {
     const arr = ui.drafts[cid] || [];
     const isLast = arr.length && arr[arr.length - 1].k === k;
     const d = getDraft(cid, k);
-    if (isLast && d && hasContent(d)) { pendingFocus = { desc: { t: "g", k, f: field }, caret }; render(); }
+    if (isLast && d && hasContent(d)) {
+      const nb = blank(); arr.push(nb); ui.drafts[cid] = arr; saveUi();
+      const tmp = document.createElement("div"); tmp.innerHTML = ghostRowHTML(cid, nb);
+      const newRow = tmp.firstElementChild;
+      if (rowEl && rowEl.after) { rowEl.after(newRow); wireGhostRow(newRow, cid); }
+    }
   }
 
   function colWidths() {
@@ -180,15 +198,7 @@ function mount(root, ctx) {
             `data-cat="${c.id}" data-id="${p.id}"`);
         });
         normDrafts(c.id);
-        (ui.drafts[c.id] || []).forEach((gd) => {
-          html += rp("ghost",
-            `<button class="mGrip gplus" data-gadd="${c.id}" data-gk="${gd.k}" title="Posten anlegen" tabindex="-1">+</button>`
-            + `<span class="mInfo cInfo"><input class="g-note" data-gc="${c.id}" data-gk="${gd.k}" placeholder="Kommentar…" value="${esc(gd.note || "")}" /></span>`
-            + `<span class="mName cName"><input class="g-name" data-gc="${c.id}" data-gk="${gd.k}" placeholder="Neuer Posten…" value="${esc(gd.name || "")}" /></span>`
-            + `<span class="mAmt"><input class="g-m" data-gc="${c.id}" data-gk="${gd.k}" inputmode="decimal" placeholder="0,00" value="${esc(gd.m || "")}" /></span>`
-            + `<span class="mMenu"></span>`,
-            `<span class="yw"><input class="g-y" data-gc="${c.id}" data-gk="${gd.k}" inputmode="decimal" placeholder="0,00" value="${esc(gd.y || "")}" /></span>`);
-        });
+        (ui.drafts[c.id] || []).forEach((gd) => { html += ghostRowHTML(c.id, gd); });
         const isLast = ci === cats.length - 1, scls = c.kind === "income" ? "pos" : "neg";
         html += rp("sum" + (isLast ? " last" : ""), `<span class="mGrip"></span><span class="mInfo sumlbl">Summe</span><span class="mName"></span><span class="mAmt"><span class="sumv ${scls}">${fmtEUR(c.monthly)}</span></span><span class="mMenu"></span>`, `<span class="yw"><span class="sumv ${scls}">${fmtEUR(c.yearly)}</span></span>`);
         if (!isLast) html += rp("spacer", "", "");
@@ -338,19 +348,29 @@ function mount(root, ctx) {
     });
 
     // Geister-Zeilen
-    root.querySelectorAll(".rp.ghost").forEach((row) => {
-      const cid = +row.querySelector("[data-gc]").dataset.gc;
-      const k = +row.querySelector("[data-gk]").dataset.gk;
-      const note = row.querySelector(".g-note"), name = row.querySelector(".g-name"), gm = row.querySelector(".g-m"), gy = row.querySelector(".g-y");
-      const upd = (f, v) => { const d = getDraft(cid, k); if (d) d[f] = v; saveUi(); };
-      gm.addEventListener("input", () => { const d = getDraft(cid, k); if (d) d.src = "monatlich"; upd("m", gm.value); try { gy.value = gm.value.trim() ? amtStr(parse(gm.value) * 12) : ""; } catch (e) {} upd("y", gy.value); maybeSpawn(cid, k, "g-m", gm.selectionStart); });
-      gy.addEventListener("input", () => { const d = getDraft(cid, k); if (d) d.src = "jaehrlich"; upd("y", gy.value); try { gm.value = gy.value.trim() ? amtStr(parse(gy.value) / 12) : ""; } catch (e) {} upd("m", gm.value); maybeSpawn(cid, k, "g-y", gy.selectionStart); });
-      note.addEventListener("input", () => { upd("note", note.value); maybeSpawn(cid, k, "g-note", note.selectionStart); });
-      name.addEventListener("input", () => { upd("name", name.value); maybeSpawn(cid, k, "g-name", name.selectionStart); });
-      [note, name, gm, gy].forEach((inp) => inp.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); commitDraft(cid, k, { focusTrailing: true }); } }));
-      row.addEventListener("focusout", (e) => { if (row.contains(e.relatedTarget)) return; const d = getDraft(cid, k); if (!d || !(d.name || "").trim()) return; commitDraft(cid, k, { desc: descOf(e.relatedTarget) }); });
+    root.querySelectorAll(".rp.ghost").forEach((row) => wireGhostRow(row, +row.querySelector("[data-gc]").dataset.gc));
+  }
+
+  function wireGhostRow(row, cid) {
+    const k = +row.querySelector("[data-gk]").dataset.gk;
+    const note = row.querySelector(".g-note"), name = row.querySelector(".g-name"), gm = row.querySelector(".g-m"), gy = row.querySelector(".g-y");
+    const gadd = row.querySelector("[data-gadd]");
+    const upd = (f, v) => { const d = getDraft(cid, k); if (d) d[f] = v; saveUi(); };
+    gm.addEventListener("input", () => { const d = getDraft(cid, k); if (d) d.src = "monatlich"; upd("m", gm.value); try { gy.value = gm.value.trim() ? amtStr(parse(gm.value) * 12) : ""; } catch (e) {} upd("y", gy.value); maybeSpawn(cid, k, row); });
+    gy.addEventListener("input", () => { const d = getDraft(cid, k); if (d) d.src = "jaehrlich"; upd("y", gy.value); try { gm.value = gy.value.trim() ? amtStr(parse(gy.value) / 12) : ""; } catch (e) {} upd("m", gm.value); maybeSpawn(cid, k, row); });
+    note.addEventListener("input", () => { upd("note", note.value); maybeSpawn(cid, k, row); });
+    name.addEventListener("input", () => { upd("name", name.value); maybeSpawn(cid, k, row); });
+    [note, name, gm, gy].forEach((inp) => inp.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); commitDraft(cid, k, { focusTrailing: true }); } }));
+    row.addEventListener("focusout", (e) => {
+      if (row.contains(e.relatedTarget)) return;
+      const d = getDraft(cid, k);
+      if (d && (d.name || "").trim()) { commitDraft(cid, k, { desc: descOf(e.relatedTarget) }); return; }
+      // Namenlos verlassen: überzählige leere Geister-Zeilen aufräumen (max. 1 bleibt).
+      const before = (ui.drafts[cid] || []).length;
+      normDrafts(cid);
+      if ((ui.drafts[cid] || []).length !== before) { pendingFocus = { desc: descOf(e.relatedTarget) }; saveUi(); render(); }
     });
-    root.querySelectorAll("[data-gadd]").forEach((b) => { b.addEventListener("mousedown", (e) => e.preventDefault()); b.addEventListener("click", () => commitDraft(+b.dataset.gadd, +b.dataset.gk, { focusTrailing: true })); });
+    if (gadd) { gadd.addEventListener("mousedown", (e) => e.preventDefault()); gadd.addEventListener("click", () => commitDraft(cid, k, { focusTrailing: true })); }
   }
 
   const saveNote = debounce((id, v) => api.updatePosten(id, { note: v }).catch((e) => toast(e.message, true)), 500);
