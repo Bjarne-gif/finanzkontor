@@ -1,0 +1,10 @@
+data/*
+!data/.gitkeep
+.env
+.git
+__pycache__/
+*.pyc
+.venv/
+venv/
+README.md
+preview.html

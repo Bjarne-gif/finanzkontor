@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 
 APP_NAME = "Finanzkontor"
-APP_VERSION = "0.2.0"
+APP_VERSION = "0.3.1"
 STAGE = "Stufe 1 – Ledger"
 
 # Verzeichnis für ALLE privaten Daten (DB-Dateien + Keyfile).
