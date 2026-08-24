@@ -33,7 +33,7 @@ function mount(root, ctx) {
   const dbName = (store.get("state") && store.get("state").active_db) || "db";
   const UIKEY = "fk_ledger_ui_" + dbName;
 
-  let data = null, menuEl = null, dragId = null, confirmEl = null;
+  let data = null, menuEl = null, pDrag = null, confirmEl = null, catDrag = null, catSettling = null;
   let draftKey = 1, pendingFocus = null;
 
   let ui = loadUi();
@@ -103,6 +103,7 @@ function mount(root, ctx) {
     if (pf.caret != null && el.setSelectionRange) { try { el.setSelectionRange(pf.caret, pf.caret); } catch (e) {} }
     else if (isAmt(el) && el.select) el.select();
     else if (el.setSelectionRange) { try { const L = el.value.length; el.setSelectionRange(L, L); } catch (e) {} }
+    ensureVisible(el, 0.34, 28);
   }
 
   // ---- Geister-Zeilen (Multi-Draft) ----
@@ -121,7 +122,7 @@ function mount(root, ctx) {
       + `<span class="mName cName"><input class="g-name" data-gc="${cid}" data-gk="${gd.k}" placeholder="Neuer Posten…" value="${esc(gd.name || "")}" /></span>`
       + `<span class="mAmt"><input class="g-m" data-gc="${cid}" data-gk="${gd.k}" inputmode="decimal" placeholder="0,00" value="${esc(gd.m || "")}" /></span>`
       + `<span class="mMenu"></span>`,
-      `<span class="yw"><input class="g-y" data-gc="${cid}" data-gk="${gd.k}" inputmode="decimal" placeholder="0,00" value="${esc(gd.y || "")}" /></span>`);
+      `<span class="yw"><input class="g-y" data-gc="${cid}" data-gk="${gd.k}" inputmode="decimal" placeholder="0,00" value="${esc(gd.y || "")}" /></span>`, `data-block="${cid}"`);
   }
 
   // Neue leere Zeile chirurgisch anhängen – ohne das aktuell getippte Feld
@@ -186,30 +187,32 @@ function mount(root, ctx) {
       html = rp("first hd", `<span class="mGrip"></span><span class="mInfo">Information</span><span class="mName">Posten</span><span class="mAmt">Monatlich</span><span class="mMenu"></span>`, `<span class="yhd">Jährlich</span>`);
       html += rp("spacer", "", "");
       cats.forEach((c, ci) => {
-        html += rp("ghead grp-" + c.kind, `<span class="mGrip"></span><span class="ghfull"><span class="dot"></span><input data-catname="${c.id}" value="${esc(c.name)}" /></span><span class="mMenu"><button class="catdel" data-catdel="${c.id}" title="Bereich löschen" tabindex="-1">×</button></span>`, "");
+        html += rp("ghead grp-" + c.kind, `<span class="mGrip catgrip" data-catgrip="${c.id}" title="Bereich verschieben">⠿</span><span class="ghfull"><span class="dot"></span><input data-catname="${c.id}" value="${esc(c.name)}" /></span><span class="mMenu"><button class="catdel" data-catdel="${c.id}" title="Bereich löschen" tabindex="-1">×</button></span>`, "", `data-block="${c.id}"`);
         c.posten.forEach((p) => {
           html += rp("row " + (p.active ? "" : "inactive"),
-            `<span class="mGrip" draggable="true" data-grip="${p.id}">⠿</span>`
+            `<span class="mGrip" data-grip="${p.id}" title="Posten verschieben">⠿</span>`
             + `<span class="mInfo cInfo"><input data-note="${p.id}" value="${esc(p.note || "")}" placeholder="Kommentar…" /></span>`
             + `<span class="mName cName"><input data-name="${p.id}" value="${esc(p.name)}" /></span>`
             + `<span class="mAmt">${valCell("m", p)}</span>`
             + `<span class="mMenu"><button class="dots" data-menu="${p.id}" tabindex="-1">⋯</button></span>`,
             `<span class="yw">${valCell("y", p)}</span>`,
-            `data-cat="${c.id}" data-id="${p.id}"`);
+            `data-cat="${c.id}" data-id="${p.id}" data-block="${c.id}"`);
         });
         normDrafts(c.id);
         (ui.drafts[c.id] || []).forEach((gd) => { html += ghostRowHTML(c.id, gd); });
         const isLast = ci === cats.length - 1, scls = c.kind === "income" ? "pos" : "neg";
-        html += rp("sum" + (isLast ? " last" : ""), `<span class="mGrip"></span><span class="mInfo sumlbl">Summe</span><span class="mName"></span><span class="mAmt"><span class="sumv ${scls}">${fmtEUR(c.monthly)}</span></span><span class="mMenu"></span>`, `<span class="yw"><span class="sumv ${scls}">${fmtEUR(c.yearly)}</span></span>`);
-        if (!isLast) html += rp("spacer", "", "");
+        html += rp("sum" + (isLast ? " last" : ""), `<span class="mGrip"></span><span class="mInfo sumlbl">Summe</span><span class="mName"></span><span class="mAmt"><span class="sumv ${scls}">${fmtEUR(c.monthly)}</span></span><span class="mMenu"></span>`, `<span class="yw"><span class="sumv ${scls}">${fmtEUR(c.yearly)}</span></span>`, `data-block="${c.id}"`);
+        if (!isLast) html += rp("spacer", "", "", `data-block="${c.id}"`);
       });
     }
     html += `<div class="xaddcat"><button data-addcat="income">+ Einnahme-Kategorie</button><button data-addcat="expense">+ Kosten-Kategorie</button></div>`;
 
     root.innerHTML = `<div class="ledger2" style="--mw:${w.mw}px;--yw:${w.yw}px;--emw:${w.emw}px;--eyw:${w.eyw}px"><div class="leftcol"><div class="areatitle">Einzelpositionen</div><div class="tablearea">${html}</div></div><div class="evalcol"><div class="areatitle">Zusammenfassung</div>${renderEval(empty)}</div></div>`;
+    if (canvas && ui.scroll) canvas.scrollTop = ui.scroll;
+    if (catDrag) blockRows(catDrag.cid).forEach((r) => { r.style.visibility = "hidden"; });
+    if (catSettling != null) blockRows(catSettling).forEach((r) => { r.style.visibility = "hidden"; });
     wire();
     applyFocus();
-    if (canvas && ui.scroll) canvas.scrollTop = ui.scroll;
   }
 
   // ---- Anlegen (Geister-Zeile) ----
@@ -234,14 +237,6 @@ function mount(root, ctx) {
   }
 
   // ---- Sortieren ----
-  function afterRow(cat, y) {
-    const rows = [...root.querySelectorAll(`.rp.row[data-cat="${cat}"]:not(.dragging)`)];
-    return rows.reduce((cl, ch) => { const b = ch.getBoundingClientRect(); const off = y - b.top - b.height / 2; return off < 0 && off > cl.o ? { o: off, el: ch } : cl; }, { o: -Infinity, el: null }).el;
-  }
-  async function commitOrder(cat) {
-    const ids = [...root.querySelectorAll(`.rp.row[data-cat="${cat}"]`)].map((r) => +r.dataset.id);
-    try { await api.reorderPosten(ids); await refresh(); } catch (e) { toast(e.message, true); await refresh(); }
-  }
   async function move(id, dir) {
     const c = catOf(id); if (!c) return;
     const ids = c.posten.map((p) => p.id); const i = ids.indexOf(id), j = i + dir;
@@ -297,10 +292,186 @@ function mount(root, ctx) {
     catch (e) { toast(e.message, true); await refresh(); }
   }
 
+  // ---- Kategorie-Bereiche verschieben (schwebende Kopie, immer obenauf) ----
+  function catOrder(){return data.categories.map((c)=>c.id);}
+  function blockRows(cid){return [...root.querySelectorAll(`.rp[data-block="${cid}"]`)];}
+  function gheadTop(cid){const g=root.querySelector(`.rp.ghead[data-block="${cid}"]`);return g?g.getBoundingClientRect().top:0;}
+  function blockGeom(cid){const rows=blockRows(cid);if(!rows.length)return null;const a=rows[0].getBoundingClientRect(),b=rows[rows.length-1].getBoundingClientRect();return{top:a.top,bottom:b.bottom,mid:(a.top+b.bottom)/2,h:b.bottom-a.top};}
+  function getScroller(el){let n=el;while(n&&n!==document.body){const st=getComputedStyle(n);if(/(auto|scroll)/.test(st.overflowY)&&n.scrollHeight>n.clientHeight+2)return n;n=n.parentElement;}return document.scrollingElement||document.documentElement;}
+  function ensureVisible(el,mb,mt){if(!el)return;const sc=getScroller(root);const isDoc=(sc===document.scrollingElement||sc===document.documentElement||sc===document.body);const scr=isDoc?{top:0,bottom:(window.innerHeight||document.documentElement.clientHeight)}:sc.getBoundingClientRect();const r=el.getBoundingClientRect();const H=scr.bottom-scr.top;let bm=(mb!=null?mb:24);if(bm>0&&bm<1)bm=Math.min(Math.max(H*bm,150),300);const tm=(mt!=null?mt:24);let delta=0;if(r.bottom>scr.bottom-bm)delta=r.bottom-(scr.bottom-bm);else if(r.top<scr.top+tm)delta=r.top-(scr.top+tm);if(Math.abs(delta)>1){const target=Math.max(0,sc.scrollTop+delta);try{sc.scrollTo({top:target,behavior:"smooth"});}catch(e){sc.scrollTop=target;}if(sc===canvas){ui.scroll=target;saveUi();}}}
+  function wireCatDrag(){root.querySelectorAll("[data-catgrip]").forEach((g)=>{g.addEventListener("pointerdown",(e)=>{if(e.button!=null&&e.button!==0)return;startCatDrag(+g.dataset.catgrip,e);});});}
+  function startCatDrag(cid,e){if(document.activeElement&&document.activeElement!==document.body&&document.activeElement.blur)document.activeElement.blur();const order0=catOrder();if(order0.length<2)return;e.preventDefault();
+    const fromIndex=order0.indexOf(cid);const mc0={};
+    order0.forEach((oc)=>{const g=blockGeom(oc);if(g)mc0[oc]=g.mid;});
+    const dr=blockRows(cid);if(!dr.length)return;
+    const first=dr[0].getBoundingClientRect(),last=dr[dr.length-1].getBoundingClientRect();
+    const fRows=blockRows(order0[0]),lRows=blockRows(order0[order0.length-1]);
+    const listTop0=(fRows.length?fRows[0].getBoundingClientRect().top:first.top),listBottom0=(lRows.length?lRows[lRows.length-1].getBoundingClientRect().bottom:last.bottom);
+    const sc=getScroller(root);const led=root.querySelector(".ledger2");
+    const clone=document.createElement("div");clone.className="catclone";
+    clone.setAttribute("style",((led&&led.getAttribute("style"))||"")+";position:fixed;left:"+first.left+"px;top:"+first.top+"px;width:"+first.width+"px;z-index:9999;pointer-events:none;margin:0;");
+    dr.forEach((r)=>{const cr=r.cloneNode(true);const si=r.querySelectorAll("input"),di=cr.querySelectorAll("input");si.forEach((el,idx)=>{if(di[idx])di[idx].value=el.value;});clone.appendChild(cr);});
+    document.body.appendChild(clone);
+    dr.forEach((r)=>{r.style.visibility="hidden";});
+    catDrag={cid,order0,fromIndex,mc0,mcCid:mc0[cid],clone,cloneOffY:first.top-e.clientY,blockH:last.bottom-first.top,listTop0,listBottom0,footprint:(last.bottom-first.top)+9,startClientY:e.clientY,startScroll:sc.scrollTop,sc,maxScroll:Math.max(0,sc.scrollHeight-sc.clientHeight),lastClientY:e.clientY,toIndex:fromIndex,rows:dr,autoRAF:0};
+    root.classList.add("catdrag-on");
+    window.addEventListener("pointermove",onCatMove);window.addEventListener("pointerup",onCatUp);window.addEventListener("pointercancel",cancelCatDrag);window.addEventListener("keydown",onCatKey,true);}
+  function onCatMove(e){if(!catDrag)return;catDrag.lastClientY=e.clientY;updateCatDrag();maybeAutoScroll();}
+  function updateCatDrag(){const D=catDrag;if(!D)return;const y=D.lastClientY;const dScroll=D.sc.scrollTop-D.startScroll;
+    let cloneTop=y+D.cloneOffY;const lt=D.listTop0-dScroll,lb=D.listBottom0-dScroll;cloneTop=Math.max(lt,Math.min(lb-D.blockH,cloneTop));
+    D.clone.style.top=cloneTop+"px";
+    const cloneBot=cloneTop+D.blockH;let below=0,above=0;
+    D.order0.forEach((oc)=>{if(oc===D.cid)return;const mcn=D.mc0[oc]-dScroll;if(D.mc0[oc]>D.mcCid){if(cloneBot>mcn)below++;}else{if(cloneTop<mcn)above++;}});
+    const toIndex=D.fromIndex+below-above;
+    if(toIndex!==D.toIndex){D.toIndex=toIndex;applyCatShift();}}
+  function applyCatShift(){const{order0,cid,fromIndex,toIndex,footprint}=catDrag;
+    order0.forEach((oc,i)=>{if(oc===cid)return;let sh=0;
+      if(toIndex>fromIndex){if(i>fromIndex&&i<=toIndex)sh=-footprint;}
+      else if(toIndex<fromIndex){if(i>=toIndex&&i<fromIndex)sh=footprint;}
+      blockRows(oc).forEach((r)=>{r.style.transition="transform .16s var(--ease)";r.style.transform=sh?("translateY("+sh+"px)"):"";});});}
+  function maybeAutoScroll(){const D=catDrag;if(!D||D.autoRAF)return;const EDGE=56;const r=D.sc.getBoundingClientRect();const y=D.lastClientY;
+    if(y>=r.top+EDGE&&y<=r.bottom-EDGE)return;
+    const step=()=>{if(!catDrag){return;}const rr=catDrag.sc.getBoundingClientRect();const yy=catDrag.lastClientY;let dd=0;
+      if(yy<rr.top+EDGE)dd=-1;else if(yy>rr.bottom-EDGE)dd=1;
+      if(dd===0){catDrag.autoRAF=0;return;}
+      const di=dd<0?(rr.top+EDGE-yy):(yy-(rr.bottom-EDGE));const sp=Math.min(20,4+di/2.4);
+      const before=catDrag.sc.scrollTop;const target=Math.max(0,Math.min(catDrag.maxScroll,before+dd*sp));catDrag.sc.scrollTop=target;
+      if(catDrag.sc.scrollTop!==before){updateCatDrag();catDrag.autoRAF=requestAnimationFrame(step);}else{catDrag.autoRAF=0;}};
+    D.autoRAF=requestAnimationFrame(step);}
+  function stopAuto(){if(catDrag&&catDrag.autoRAF){cancelAnimationFrame(catDrag.autoRAF);catDrag.autoRAF=0;}}
+  function endCatDrag(){stopAuto();window.removeEventListener("pointermove",onCatMove);window.removeEventListener("pointerup",onCatUp);window.removeEventListener("pointercancel",cancelCatDrag);window.removeEventListener("keydown",onCatKey,true);root.classList.remove("catdrag-on");catDrag=null;}
+  function onCatKey(e){if(e.key==="Escape"&&catDrag){e.preventDefault();cancelCatDrag();}}
+  function cancelCatDrag(){if(!catDrag)return;const D=catDrag;stopAuto();
+    D.rows.forEach((r)=>{r.style.visibility="";});
+    root.querySelectorAll(".rp[data-block]").forEach((r)=>{r.style.transition="transform .16s var(--ease)";r.style.transform="";});
+    if(D.clone)D.clone.remove();
+    setTimeout(()=>{root.querySelectorAll(".rp[data-block]").forEach((r)=>{r.style.transition="";});},180);
+    endCatDrag();}
+  function onCatUp(){if(!catDrag)return;const{cid,order0,toIndex,clone}=catDrag;stopAuto();
+    const no=order0.filter((x)=>x!==cid);const ti=Math.max(0,Math.min(no.length,toIndex));no.splice(ti,0,cid);
+    data.categories.sort((a,b)=>no.indexOf(a.id)-no.indexOf(b.id));
+    if(canvas)ui.scroll=canvas.scrollTop;
+    endCatDrag();render();
+    api.reorderCategories(no).catch((err)=>{toast(err.message,true);refresh();});
+    if(clone){catSettling=cid;blockRows(cid).forEach((r)=>r.style.visibility="hidden");const targetTop=gheadTop(cid);clone.style.transition="top .18s var(--ease)";requestAnimationFrame(()=>{clone.style.top=targetTop+"px";});setTimeout(()=>{catSettling=null;blockRows(cid).forEach((r)=>{r.style.visibility="";});try{clone.remove();}catch(e){}},210);}else{catSettling=null;}}
+
+  // ---- Posten verschieben (weicher Klon, blockübergreifend, gleiche Art) ----
+  function wirePostenDrag(){root.querySelectorAll(".rp.row [data-grip]").forEach((g)=>{g.addEventListener("pointerdown",(e)=>{if(e.button!=null&&e.button!==0)return;startPostenDrag(+g.dataset.grip,e);});});}
+  function resolvePTarget(y){
+    const geoms=data.categories.map((c)=>({c,g:blockGeom(c.id)})).filter((x)=>x.g);
+    if(!geoms.length)return{cid:null,index:0,valid:false,rows:[]};
+    const first=geoms[0],last=geoms[geoms.length-1];let hit;
+    if(y<=first.g.top)hit=first;else if(y>=last.g.bottom)hit=last;
+    else{hit=geoms.find((x)=>y>=x.g.top&&y<=x.g.bottom);if(!hit){let bd=Infinity;for(const x of geoms){const d=y<x.g.top?x.g.top-y:y-x.g.bottom;if(d<bd){bd=d;hit=x;}}}}
+    const cid=hit.c.id,valid=hit.c.kind===pDrag.kind;
+    const rows=[...root.querySelectorAll(`.rp.row[data-cat="${cid}"]:not(.dragsrc)`)];
+    let index=rows.length;
+    for(let i=0;i<rows.length;i++){const b=rows[i].getBoundingClientRect();if(y<b.top+b.height/2){index=i;break;}}
+    return{cid,index,valid,rows};
+  }
+  function startPostenDrag(pid,e){
+    if(document.activeElement&&document.activeElement!==document.body&&document.activeElement.blur)document.activeElement.blur();
+    const srcBlock=catOf(pid);if(!srcBlock)return;
+    const rowEl=root.querySelector(`.rp.row[data-id="${pid}"]`);if(!rowEl)return;
+    e.preventDefault();
+    const rect=rowEl.getBoundingClientRect();
+    const allRows=[...root.querySelectorAll(".rp.row, .rp.ghead, .rp.sum")];
+    const listTop0=allRows.length?allRows[0].getBoundingClientRect().top:rect.top;
+    const listBottom0=allRows.length?allRows[allRows.length-1].getBoundingClientRect().bottom:rect.bottom;
+    const sc=getScroller(root),led=root.querySelector(".ledger2");
+    // schwebende Kopie – erbt die Spaltenbreiten der .ledger2 (rechte Spalte bündig)
+    const clone=rowEl.cloneNode(true);clone.classList.remove("dragsrc");clone.classList.add("pclone");
+    const si=rowEl.querySelectorAll("input"),di=clone.querySelectorAll("input");si.forEach((el,i)=>{if(di[i])di[i].value=el.value;});
+    clone.setAttribute("style",((led&&led.getAttribute("style"))||"")+";position:fixed;left:"+rect.left+"px;top:"+rect.top+"px;width:"+rect.width+"px;z-index:9999;pointer-events:none;margin:0;");
+    document.body.appendChild(clone);
+    // unsichtbarer Platzhalter (gestrichelte Einfügemarke), Ursprungszeile raus
+    const ph=document.createElement("div");ph.className="ph";ph.style.height=rect.height+"px";ph.innerHTML='<div class="pm"></div><div class="py"></div>';
+    rowEl.after(ph);rowEl.classList.add("dragsrc");
+    const srcIndex=srcBlock.posten.findIndex((p)=>p.id===pid);
+    data.categories.forEach((c)=>{if(c.kind!==srcBlock.kind)root.querySelectorAll(`[data-block="${c.id}"]`).forEach((r)=>r.classList.add("locked"));});
+    root.classList.add("catdrag-on");
+    pDrag={pid,srcCid:srcBlock.id,srcIndex,kind:srcBlock.kind,rowEl,clone,ph,rowH:rect.height,cloneOffY:rect.top-e.clientY,listTop0,listBottom0,sc,startScroll:sc.scrollTop,maxScroll:Math.max(0,sc.scrollHeight-sc.clientHeight),lastClientY:e.clientY,dstCid:srcBlock.id,dstIndex:-1,valid:true,autoRAF:0};
+    window.addEventListener("pointermove",onPMove);window.addEventListener("pointerup",onPUp);window.addEventListener("pointercancel",cancelP);window.addEventListener("keydown",onPKey,true);
+  }
+  function onPMove(e){if(!pDrag)return;pDrag.lastClientY=e.clientY;updateP();autoScrollP();}
+  function updateP(){
+    const D=pDrag;if(!D)return;const y=D.lastClientY;const dScroll=D.sc.scrollTop-D.startScroll;
+    let top=y+D.cloneOffY;const lt=D.listTop0-dScroll,lb=D.listBottom0-dScroll;top=Math.max(lt,Math.min(lb-D.rowH,top));
+    D.clone.style.top=top+"px";
+    const t=resolvePTarget(y);D.valid=t.valid;
+    root.classList.toggle("over-locked",!t.valid);D.ph.classList.toggle("blocked",!t.valid);
+    if(t.cid!==D.dstCid||t.index!==D.dstIndex){D.dstCid=t.cid;D.dstIndex=t.index;flipP(()=>placeP(t.cid,t.index));}
+  }
+  function placeP(cid,index){
+    const D=pDrag;if(cid==null)return;
+    const rows=[...root.querySelectorAll(`.rp.row[data-cat="${cid}"]:not(.dragsrc)`)];
+    if(index>=rows.length){if(rows.length)rows[rows.length-1].after(D.ph);else{const gh=root.querySelector(`.rp.ghead[data-block="${cid}"]`);if(gh)gh.after(D.ph);}}
+    else rows[index].before(D.ph);
+  }
+  // kontinuierlicher FLIP: Nachbarzeilen gleiten smooth (auch mitten in laufender Animation)
+  function flipP(mutator){
+    const area=root.querySelector(".tablearea");if(!area){mutator();return;}
+    const nodes=[...area.querySelectorAll(".rp.row:not(.dragsrc), .rp.ghead, .rp.sum, .rp.ghost, .rp.spacer")];
+    const firstPos=new Map();nodes.forEach((n)=>firstPos.set(n,n.getBoundingClientRect().top));
+    mutator();
+    nodes.forEach((n)=>{n.style.transition="none";n.style.transform="";});
+    void area.offsetWidth;
+    nodes.forEach((n)=>{const dy=firstPos.get(n)-n.getBoundingClientRect().top;if(Math.abs(dy)>0.5)n.style.transform="translateY("+dy+"px)";});
+    requestAnimationFrame(()=>{nodes.forEach((n)=>{if(n.style.transform){n.style.transition="transform .16s var(--ease)";n.style.transform="";}});});
+  }
+  function clearPTransforms(){const area=root.querySelector(".tablearea");if(!area)return;area.querySelectorAll(".rp").forEach((r)=>{r.style.transition="";r.style.transform="";});}
+  function autoScrollP(){
+    const D=pDrag;if(!D||D.autoRAF)return;const EDGE=56,r=D.sc.getBoundingClientRect(),y=D.lastClientY;
+    if(y>=r.top+EDGE&&y<=r.bottom-EDGE)return;
+    const step=()=>{if(!pDrag){return;}const rr=pDrag.sc.getBoundingClientRect(),yy=pDrag.lastClientY;let dd=0;
+      if(yy<rr.top+EDGE)dd=-1;else if(yy>rr.bottom-EDGE)dd=1;
+      if(dd===0){pDrag.autoRAF=0;return;}
+      const di=dd<0?(rr.top+EDGE-yy):(yy-(rr.bottom-EDGE)),sp=Math.min(20,4+di/2.4);
+      const before=pDrag.sc.scrollTop,target=Math.max(0,Math.min(pDrag.maxScroll,before+dd*sp));pDrag.sc.scrollTop=target;
+      if(pDrag.sc.scrollTop!==before){updateP();pDrag.autoRAF=requestAnimationFrame(step);}else{pDrag.autoRAF=0;}};
+    D.autoRAF=requestAnimationFrame(step);
+  }
+  function onPKey(e){if(e.key==="Escape"&&pDrag){e.preventDefault();cancelP();}}
+  function detachP(){window.removeEventListener("pointermove",onPMove);window.removeEventListener("pointerup",onPUp);window.removeEventListener("pointercancel",cancelP);window.removeEventListener("keydown",onPKey,true);}
+  function endPDrag(){root.classList.remove("catdrag-on","over-locked");root.querySelectorAll(".locked").forEach((r)=>r.classList.remove("locked"));pDrag=null;}
+  function cancelP(){
+    if(!pDrag)return;const D=pDrag;detachP();if(D.autoRAF)cancelAnimationFrame(D.autoRAF);
+    flipP(()=>placeP(D.srcCid,D.srcIndex));
+    const target=D.ph.getBoundingClientRect();
+    D.clone.style.transition="top .18s var(--ease), left .18s var(--ease)";
+    D.clone.style.top=target.top+"px";D.clone.style.left=target.left+"px";
+    if(canvas)ui.scroll=canvas.scrollTop;
+    setTimeout(()=>{try{D.clone.remove();}catch(e){}try{D.ph.remove();}catch(e){}clearPTransforms();if(D.rowEl)D.rowEl.classList.remove("dragsrc");endPDrag();render();},190);
+  }
+  function onPUp(){
+    if(!pDrag)return;const D=pDrag;
+    const t=resolvePTarget(D.lastClientY);
+    if(!t.valid||t.cid==null){cancelP();return;}
+    detachP();if(D.autoRAF)cancelAnimationFrame(D.autoRAF);
+    const cid=(D.dstCid!=null?D.dstCid:t.cid),index=(D.dstIndex>=0?D.dstIndex:t.index);
+    const targetTop=D.ph.getBoundingClientRect().top;
+    const unchanged=(cid===D.srcCid&&index===D.srcIndex);
+    if(!unchanged){
+      const src=catObj(D.srcCid),dst=catObj(cid);
+      const from=src.posten.findIndex((p)=>p.id===D.pid);
+      const [moved]=src.posten.splice(from,1);
+      let idx=index;if(idx>dst.posten.length)idx=dst.posten.length;if(idx<0)idx=0;
+      moved.category_id=cid;
+      dst.posten.splice(idx,0,moved);
+      const dstIds=dst.posten.map((p)=>p.id);
+      if(D.srcCid===cid)api.reorderPosten(dstIds).catch((e)=>{toast(e.message,true);refresh();});
+      else api.updatePosten(D.pid,{category_id:cid}).then(()=>api.reorderPosten(dstIds)).catch((e)=>{toast(e.message,true);refresh();});
+    }
+    D.clone.style.transition="top .16s var(--ease), left .16s var(--ease)";
+    D.clone.style.top=targetTop+"px";
+    if(canvas)ui.scroll=canvas.scrollTop;
+    setTimeout(()=>{try{D.clone.remove();}catch(e){}try{D.ph.remove();}catch(e){}clearPTransforms();endPDrag();recompute();render();},165);
+  }
+
   function wire() {
     // Kategorie
     root.querySelectorAll("[data-addcat]").forEach((b) => b.addEventListener("click", async () => {
-      try { await api.addCategory({ kind: b.dataset.addcat, name: b.dataset.addcat === "income" ? "Neue Einnahmen" : "Neue Kosten" }); await refresh(); } catch (e) { toast(e.message, true); }
+      try { await api.addCategory({ kind: b.dataset.addcat, name: b.dataset.addcat === "income" ? "Neue Einnahmen" : "Neue Kosten" }); await refresh(); ensureVisible(root.querySelector(".xaddcat"), 16); } catch (e) { toast(e.message, true); }
     }));
     root.querySelectorAll("[data-catname]").forEach((inp) => inp.addEventListener("change", () => {
       const c = catObj(+inp.dataset.catname); if (c) c.name = inp.value;
@@ -333,22 +504,14 @@ function mount(root, ctx) {
       });
     });
 
-    // ⋯-Menü + Drag
+    // ⋯-Menü
     root.querySelectorAll("[data-menu]").forEach((btn) => btn.addEventListener("click", (e) => { e.stopPropagation(); openMenu(+btn.dataset.menu, btn); }));
-    root.querySelectorAll("[data-grip]").forEach((g) => {
-      g.addEventListener("dragstart", (e) => { dragId = +g.dataset.grip; g.closest(".rp").classList.add("dragging"); e.dataTransfer.effectAllowed = "move"; });
-      g.addEventListener("dragend", async () => { const c = catOf(dragId); const rpEl = root.querySelector(".rp.dragging"); if (rpEl) rpEl.classList.remove("dragging"); dragId = null; if (c) await commitOrder(c.id); });
-    });
-    const area = root.querySelector(".tablearea");
-    if (area) area.addEventListener("dragover", (e) => {
-      if (dragId == null) return; e.preventDefault();
-      const c = catOf(dragId); const rpEl = root.querySelector(".rp.dragging"); if (!c || !rpEl) return;
-      const after = afterRow(c.id, e.clientY);
-      if (after == null) { const rows = [...area.querySelectorAll(`.rp.row[data-cat="${c.id}"]:not(.dragging)`)]; const last = rows[rows.length - 1]; if (last) last.after(rpEl); } else after.before(rpEl);
-    });
+    // Posten verschieben (weicher Klon, blockübergreifend gleiche Art)
+    wirePostenDrag();
 
     // Geister-Zeilen
     root.querySelectorAll(".rp.ghost").forEach((row) => wireGhostRow(row, +row.querySelector("[data-gc]").dataset.gc));
+    wireCatDrag();
   }
 
   function wireGhostRow(row, cid) {
@@ -383,9 +546,15 @@ function mount(root, ctx) {
     const i = fields.indexOf(document.activeElement); if (i === -1) return;
     e.preventDefault();
     let j = e.shiftKey ? i - 1 : i + 1; if (j < 0) j = fields.length - 1; if (j >= fields.length) j = 0;
-    const t = fields[j]; if (!t) return; t.focus();
-    if (isAmt(t) && t.select) t.select();
-    else if (t.setSelectionRange) { try { const L = t.value.length; t.setSelectionRange(L, L); } catch (e2) {} }
+    const t = fields[j]; if (!t) return;
+    const desc = descOf(t); t.focus();
+    let cur = document.activeElement;
+    if ((!cur || cur === document.body) && desc) { pendingFocus = { desc }; applyFocus(); cur = document.activeElement; }
+    if (cur && cur !== document.body) {
+      if (isAmt(cur) && cur.select) cur.select();
+      else if (cur.setSelectionRange) { try { const L = cur.value.length; cur.setSelectionRange(L, L); } catch (e2) {} }
+      ensureVisible(cur, 0.34, 28);
+    }
   }
 
   const onDocClick = () => closeMenu();
@@ -398,6 +567,9 @@ function mount(root, ctx) {
 
   return {
     unmount() {
+      if (catDrag) cancelCatDrag();
+      if (pDrag) cancelP();
+      catSettling = null;
       closeMenu(); removeConfirm();
       document.removeEventListener("click", onDocClick);
       document.removeEventListener("keydown", ledgerTab);
