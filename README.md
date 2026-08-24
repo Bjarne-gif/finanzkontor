@@ -1,5 +1,7 @@
 # Finanzkontor
 
+<img width="2384" height="1071" alt="image" src="https://github.com/user-attachments/assets/60eaed75-d55c-41e7-b2ff-97eb3ec3bde3" />
+
 Browserbasiertes Tool für Einnahmen, Kosten und Vermögen – selbst gehostet,
 dockerfähig, Daten verschlüsselt. Modularer Aufbau: jede Funktion ist ein
 eigener Baustein, alle laufen im selben Rahmen.
@@ -103,6 +105,4 @@ modules/          Bausteine (ab Stufe 1)
 static/           Frontend (SPA): index.html, css/, js/
 data/             Private Daten (nicht im Git)
 ```
-
-<img width="2384" height="1071" alt="image" src="https://github.com/user-attachments/assets/60eaed75-d55c-41e7-b2ff-97eb3ec3bde3" />
 
