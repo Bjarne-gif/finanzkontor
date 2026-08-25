@@ -1,16 +1,25 @@
 # Finanzkontor
 
-<img width="2394" height="1150" alt="image" src="https://github.com/user-attachments/assets/748d0057-1900-4258-8968-f1a7414e63d3" />
-
 Browserbasiertes Tool für Einnahmen, Kosten und Vermögen – selbst gehostet,
 dockerfähig, Daten verschlüsselt. Modularer Aufbau: jede Funktion ist ein
 eigener Baustein, alle laufen im selben Rahmen.
 
-**Stand:** v0.3.1 · Stufe 1 (Ledger) abgeschlossen. Kategorien & Posten mit
-Betrag + Intervall (monatlich/jährlich), Beträge kreuzweise editierbar,
-zeilenweises Anlegen direkt in der Tabelle, volle Tastatur-/Tab-Bedienung,
-Posten sortieren und ganze Bereiche per Drag verschieben, Inaktiv/Löschen, Live-Berechnung von
-Einnahmen/Kosten/Überschuss, Autospeichern und gemerkter Bearbeitungsstand.
+**Stand:** v0.4.0 · Stufe 1 (Ledger) abgeschlossen, Stufe 2
+(Überschussverwendung) **fertig** (Backend + Oberfläche). Ledger: Kategorien &
+Posten mit Betrag + Intervall (monatlich/jährlich), Beträge kreuzweise
+editierbar, zeilenweises Anlegen direkt in der Tabelle, volle Tastatur-/Tab-
+Bedienung, Posten sortieren und ganze Bereiche per Drag verschieben,
+Inaktiv/Löschen, Live-Berechnung von Einnahmen/Kosten/Überschuss, Autospeichern
+und gemerkter Bearbeitungsstand.
+
+Stufe 2 verteilt den Überschuss auf frei anlegbare **Töpfe** (fester €-Betrag
+oder Prozent des Überschusses) und zeigt, was **übrig** bleibt. Wollen die Töpfe
+mehr als der Überschuss, wird anteilig gedeckelt (Übrig nie negativ). Die
+Aufteilung erscheint rechts neben dem Ledger (Zusammenfassung + Töpfe + Übrig,
+je monatlich und jährlich); Töpfe lassen sich anlegen, umbenennen, zwischen €/%
+umschalten, per Griff sortieren und löschen. Alles läuft über `/api/split` und
+ist damit auch für Auswertungen/KI abfragbar. Persistent gespeichert werden die
+Töpfe; Verteilung und Übrig werden live aus Ledger + Töpfen berechnet.
 
 ## Schnellstart (Docker)
 
@@ -101,8 +110,8 @@ Proxy-Host auf `finanzkontor:8000` zeigen.
 app.py            App-Factory + API (Stufe 0)
 config.py         Konfiguration aus .env
 core/             Kern: auth, crypto, db, appstate, registry (Modul-System)
-modules/          Bausteine (ab Stufe 1)
+modules/ledger/   Baustein Stufe 1 (Ledger: Kategorien, Posten, Summen)
+modules/split/    Baustein Stufe 2 (Überschussverwendung: Töpfe + Verteilung)
 static/           Frontend (SPA): index.html, css/, js/
 data/             Private Daten (nicht im Git)
 ```
-

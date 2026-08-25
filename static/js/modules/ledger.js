@@ -36,6 +36,13 @@ function mount(root, ctx) {
   let data = null, menuEl = null, pDrag = null, confirmEl = null, catDrag = null, catSettling = null;
   let draftKey = 1, pendingFocus = null;
 
+  // ---- Stufe 2: Überschussverwendung (Töpfe) ----
+  const split = { pots: [] };            // aus /api/split geladen; Verteilung wird lokal gerechnet
+  const COLORS = ["#8fb3c9", "#6fb98a", "#c9a86f", "#b98fb3", "#6f9bc9", "#c96f8f"];
+  const cur = (n) => { const s = fmtEUR(n); const m = s.match(/^(.+?)(\s*€)$/); return m ? `${m[1]}<span class="cur">${m[2]}</span>` : s; };
+  const parseNum = (s) => { try { return parse(s); } catch (e) { return 0; } };
+  let tDrag = null;                      // Zustand beim Topf-Ziehen
+
   let ui = loadUi();
   function loadUi() {
     try { return { drafts: {}, scroll: 0, ...JSON.parse(localStorage.getItem(UIKEY) || "{}") }; }
@@ -48,7 +55,35 @@ function mount(root, ctx) {
   const onScroll = debounce(() => { if (canvas) { ui.scroll = canvas.scrollTop; saveUi(); } }, 150);
   if (canvas) canvas.addEventListener("scroll", onScroll, { passive: true });
 
-  async function refresh() { data = await api.ledgerState(); render(); }
+  async function refresh() { data = await api.ledgerState(); await loadSplit(); render(); }
+
+  // Töpfe aus dem Backend laden (Verteilung rechnen wir lokal für die Live-Anzeige)
+  async function loadSplit() {
+    try {
+      const s = await api.splitState();
+      split.pots = (s.pots || []).map((p) => ({ id: p.id, name: p.name, color: p.color, mode: p.mode, value: p.value }));
+    } catch (e) { split.pots = []; }
+  }
+
+  // Verteilung lokal berechnen – spiegelt modules/split/calc.py (eine Wahrheit, nur clientseitig gespiegelt)
+  function computeSplit() {
+    const uM = (data.totals && data.totals.ueberschuss.monthly) || 0;
+    const base = Math.max(0, uM);
+    const wanted = split.pots.map((t) => t.mode === "percent" ? base * (t.value || 0) / 100 : (t.value || 0));
+    const sumW = wanted.reduce((a, b) => a + b, 0);
+    let scale = 1;
+    if (base <= 0) scale = 0;
+    else if (sumW > base && sumW > 0) scale = base / sumW;
+    const scaled = base > 0 && scale < 0.9995;
+    const rows = split.pots.map((t, i) => ({
+      ...t,
+      color: t.color || COLORS[i % COLORS.length],
+      assign: r2(wanted[i] * scale),
+      capped: scaled && wanted[i] > 0,
+    }));
+    const verteilt = r2(rows.reduce((a, r) => a + r.assign, 0));
+    return { uM, base, rows, verteilt, uebrig: r2(uM - verteilt), scaled };
+  }
 
   // Lokale Neuberechnung (nach optimistischen Änderungen) – spiegelt das Backend.
   function recompute() {
@@ -160,22 +195,32 @@ function mount(root, ctx) {
     return `<input class="rval${isSrc ? "" : " drv"}" data-${kind}="${p.id}" inputmode="decimal" value="${fmtEUR(num)}" />`;
   };
 
-  function renderEval(empty) {
-    if (empty) return `<div class="evalwrap"><div class="ebox ebox-emain"></div><div class="ebox ebox-eyear"></div></div>`;
+  function renderPlan(empty) {
+    if (empty) return `<div class="plancard plan-empty"></div>`;
     const t = data.totals, uM = t.ueberschuss.monthly, uY = t.ueberschuss.yearly;
-    const state = uM > 0 ? "surplus" : (uM < 0 ? "loss" : "zero"), lbl = uM < 0 ? "Verlust" : "Überschuss";
-    const mc = (n) => (n > 0 ? "pos" : n < 0 ? "neg" : "zero");
-    const main = `<div class="evalbox evalmain ${state}">`
-      + `<div class="er first"><span class="ek"></span><span class="em hdl">Monatlich</span></div><div class="er spacer"></div>`
-      + `<div class="er"><span class="ek">Einnahmen</span><span class="em pos">${fmtEUR(t.einnahmen.monthly)}</span></div>`
-      + `<div class="er"><span class="ek">Kosten</span><span class="em neg">${fmtEUR(t.kosten.monthly)}</span></div><div class="er spacer"></div>`
-      + `<div class="er sum"><span class="ek">${lbl}</span><span class="em ${mc(uM)}">${fmtEUR(uM)}</span></div></div>`;
-    const year = `<div class="evalbox evalyear ${state}">`
-      + `<div class="er first"><span class="ey hdl">Jährlich</span></div><div class="er spacer"></div>`
-      + `<div class="er"><span class="ey pos">${fmtEUR(t.einnahmen.yearly)}</span></div>`
-      + `<div class="er"><span class="ey neg">${fmtEUR(t.kosten.yearly)}</span></div><div class="er spacer"></div>`
-      + `<div class="er sum"><span class="ey ${mc(uY)}">${fmtEUR(uY)}</span></div></div>`;
-    return `<div class="evalwrap">${main}${year}</div>`;
+    const c = computeSplit();
+    const uCls = uM > 0 ? "pos" : uM < 0 ? "neg" : "";
+    const lbl = uM < 0 ? "Verlust" : "Überschuss";
+    const head = `<div class="psr head"><span class="pk"></span><span class="pm">Monatlich</span><span class="pmenu"></span><span class="py">Jährlich</span></div>`;
+    const psblock = `<div class="psblock">`
+      + `<div class="psr val"><span class="pk">Einnahmen</span><span class="pm pos">${cur(t.einnahmen.monthly)}</span><span class="pmenu"></span><span class="py pos">${cur(t.einnahmen.yearly)}</span></div>`
+      + `<div class="psr val"><span class="pk">Kosten</span><span class="pm neg">${cur(t.kosten.monthly)}</span><span class="pmenu"></span><span class="py neg">${cur(t.kosten.yearly)}</span></div>`
+      + `<div class="psr sum"><span class="pk">${lbl}</span><span class="pm big ${uCls}">${cur(uM)}</span><span class="pmenu"></span><span class="py ${uCls}">${cur(uY)}</span></div>`
+      + `</div>`;
+    const toepfe = c.rows.map((r) =>
+      `<div class="trow${r.capped ? " capped" : ""}" data-id="${r.id}">`
+      + `<span class="tgrip" data-tgrip="${r.id}" title="verschieben">⠿</span>`
+      + `<span class="tdot" style="background:${r.color}"></span>`
+      + `<input class="tname" data-tname="${r.id}" value="${esc(r.name)}" />`
+      + `<div class="tmode"><button data-tmode="${r.id}" data-m="fixed" class="${r.mode === "fixed" ? "on" : ""}" tabindex="-1">€</button><button data-tmode="${r.id}" data-m="percent" class="${r.mode === "percent" ? "on" : ""}" tabindex="-1">%</button></div>`
+      + `<input class="tval" data-tval="${r.id}" inputmode="decimal" value="${r.mode === "percent" ? (r.value || 0) : amtStr(r.value || 0)}" />`
+      + `<div class="trright"><span class="tassign">${fmtEUR(r.assign)}</span>${r.capped ? `<span class="tcap">anteilig</span>` : ""}</div>`
+      + `<button class="tdel" data-tdel="${r.id}" title="entfernen" tabindex="-1">×</button></div>`).join("");
+    const split_ = `<div class="splitblock"><div class="pcsp-head"><span class="stitle">Überschussverwendung</span>`
+      + `<span class="pcsp-basis">monatlich zu verteilen: <b>${fmtEUR(c.base)}</b></span></div>`
+      + `<div class="tframe"><div class="tlist">${toepfe}</div><button class="taddbtn" data-taddpot>+ Topf hinzufügen</button></div></div>`;
+    const uebrigBlock = `<div class="uebrig ${c.uebrig > 0 ? "ok" : "zero"}"><span class="pk">Übrig</span><span class="pm big">${cur(c.uebrig)}</span><span class="pmenu"></span><span class="py">${cur(c.uebrig * 12)}</span></div>`;
+    return `<div class="plancard">${head}${psblock}${split_}${uebrigBlock}</div>`;
   }
 
   function render() {
@@ -207,12 +252,20 @@ function mount(root, ctx) {
     }
     html += `<div class="xaddcat"><button data-addcat="income">+ Einnahme-Kategorie</button><button data-addcat="expense">+ Kosten-Kategorie</button></div>`;
 
-    root.innerHTML = `<div class="ledger2" style="--mw:${w.mw}px;--yw:${w.yw}px;--emw:${w.emw}px;--eyw:${w.eyw}px"><div class="leftcol"><div class="areatitle">Einzelpositionen</div><div class="tablearea">${html}</div></div><div class="evalcol"><div class="areatitle">Zusammenfassung</div>${renderEval(empty)}</div></div>`;
+    root.innerHTML = `<div class="ledger2" style="--mw:${w.mw}px;--yw:${w.yw}px;--emw:${w.emw}px;--eyw:${w.eyw}px"><div class="leftcol"><div class="areatitle">Einzelpositionen</div><div class="tablearea">${html}</div></div><div class="plancol"><div class="areatitle">Zusammenfassung &amp; Aufteilung</div>${renderPlan(empty)}</div></div>`;
     if (canvas && ui.scroll) canvas.scrollTop = ui.scroll;
     if (catDrag) blockRows(catDrag.cid).forEach((r) => { r.style.visibility = "hidden"; });
     if (catSettling != null) blockRows(catSettling).forEach((r) => { r.style.visibility = "hidden"; });
     wire();
     applyFocus();
+    syncWidth();
+  }
+
+  // Rechte Spalte auf die Breite der linken koppeln (beide gleich breit)
+  function syncWidth() {
+    const l = root.querySelector(".leftcol"), p = root.querySelector(".plancol");
+    if (!l || !p) return;
+    p.style.width = l.getBoundingClientRect().width + "px";
   }
 
   // ---- Anlegen (Geister-Zeile) ----
@@ -512,6 +565,7 @@ function mount(root, ctx) {
     // Geister-Zeilen
     root.querySelectorAll(".rp.ghost").forEach((row) => wireGhostRow(row, +row.querySelector("[data-gc]").dataset.gc));
     wireCatDrag();
+    wireSplit();
   }
 
   function wireGhostRow(row, cid) {
@@ -558,17 +612,127 @@ function mount(root, ctx) {
   }
 
   const onDocClick = () => closeMenu();
-  const onResize = () => closeMenu();
+  const onResize = () => { closeMenu(); syncWidth(); };
   document.addEventListener("click", onDocClick);
   document.addEventListener("keydown", ledgerTab);
   window.addEventListener("resize", onResize);
 
   refresh().then(() => renderConfirm()).catch((e) => { root.innerHTML = `<div class="ledger2"><p class="lg-load">Ledger konnte nicht geladen werden: ${esc(e.message)}</p></div>`; });
 
+  // ---- Töpfe: Verdrahtung ----
+  function wireSplit() {
+    // Name: lokal beim Tippen, speichern beim Verlassen
+    root.querySelectorAll("[data-tname]").forEach((el) => {
+      el.addEventListener("input", () => { const t = split.pots.find((x) => x.id == el.dataset.tname); if (t) t.name = el.value; });
+      el.addEventListener("change", () => { const id = +el.dataset.tname; const t = split.pots.find((x) => x.id == id); if (t) api.updatePot(id, { name: t.name }).catch((e) => { toast(e.message, true); refresh(); }); });
+    });
+    // €/% umschalten
+    root.querySelectorAll("[data-tmode]").forEach((b) => b.addEventListener("click", () => {
+      const id = +b.dataset.tmode, t = split.pots.find((x) => x.id == id); if (!t || t.mode === b.dataset.m) return;
+      t.mode = b.dataset.m; render();
+      api.updatePot(id, { mode: t.mode }).catch((e) => { toast(e.message, true); refresh(); });
+    }));
+    // Wert: live beim Tippen, speichern beim Verlassen
+    root.querySelectorAll("[data-tval]").forEach((el) => {
+      el.addEventListener("focus", () => el.select());
+      el.addEventListener("input", () => { const t = split.pots.find((x) => x.id == el.dataset.tval); if (t) { t.value = parseNum(el.value); liveSplit(); } });
+      el.addEventListener("change", () => { const id = +el.dataset.tval, t = split.pots.find((x) => x.id == id); if (t) api.updatePot(id, { value: t.value }).catch((e) => { toast(e.message, true); refresh(); }); });
+      el.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); el.blur(); } });
+    });
+    // Löschen
+    root.querySelectorAll("[data-tdel]").forEach((b) => b.addEventListener("click", () => {
+      const id = +b.dataset.tdel;
+      split.pots = split.pots.filter((x) => x.id != id); render();
+      api.deletePot(id).catch((e) => { toast(e.message, true); refresh(); });
+    }));
+    // Hinzufügen
+    const add = root.querySelector("[data-taddpot]");
+    if (add) add.addEventListener("click", async () => {
+      const color = COLORS[split.pots.length % COLORS.length];
+      try {
+        const r = await api.addPot({ name: "Neuer Topf", mode: "fixed", value: 0, color });
+        split.pots.push({ id: r.id, name: "Neuer Topf", color, mode: "fixed", value: 0 });
+        render();
+        const inp = root.querySelector(`[data-tname="${r.id}"]`); if (inp) { inp.focus(); inp.select(); }
+      } catch (e) { toast(e.message, true); }
+    });
+    // Ziehen (Reihenfolge)
+    root.querySelectorAll(".tgrip[data-tgrip]").forEach((g) => g.addEventListener("pointerdown", (e) => { if (e.button != null && e.button !== 0) return; startTopfDrag(+g.dataset.tgrip, e); }));
+  }
+
+  // Nur Beträge/Übrig aktualisieren, ohne Neuaufbau (Fokus im tval-Feld bleibt erhalten)
+  function liveSplit() {
+    const c = computeSplit();
+    const rows = [...root.querySelectorAll(".trow")];
+    c.rows.forEach((r, i) => {
+      const el = rows[i]; if (!el) return;
+      el.classList.toggle("capped", r.capped);
+      const a = el.querySelector(".tassign"); if (a) a.textContent = fmtEUR(r.assign);
+      const rr = el.querySelector(".trright"), cap = el.querySelector(".tcap");
+      if (r.capped && !cap && rr) { const s = document.createElement("span"); s.className = "tcap"; s.textContent = "anteilig"; rr.appendChild(s); }
+      else if (!r.capped && cap) cap.remove();
+    });
+    const upm = root.querySelector(".uebrig .pm"); if (upm) upm.innerHTML = cur(c.uebrig);
+    const upy = root.querySelector(".uebrig .py"); if (upy) upy.innerHTML = cur(c.uebrig * 12);
+    const ue = root.querySelector(".uebrig"); if (ue) { ue.classList.toggle("ok", c.uebrig > 0); ue.classList.toggle("zero", c.uebrig <= 0); }
+  }
+
+  // ---- Töpfe verschieben (weicher Klon, wie bei Kategorien/Posten) ----
+  function startTopfDrag(id, e) {
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    const list = root.querySelector(".tlist"), rowEl = root.querySelector(`.trow[data-id="${id}"]`);
+    if (!list || !rowEl) return; e.preventDefault();
+    const rect = rowEl.getBoundingClientRect();
+    const rows0 = [...root.querySelectorAll(".trow")];
+    const listTop0 = rows0.length ? rows0[0].getBoundingClientRect().top : rect.top;
+    const listBottom0 = rows0.length ? rows0[rows0.length - 1].getBoundingClientRect().bottom : rect.bottom;
+    const sc = canvas;
+    const clone = rowEl.cloneNode(true); clone.classList.add("tclone");
+    const si = rowEl.querySelectorAll("input"), di = clone.querySelectorAll("input");
+    si.forEach((el, i) => { if (di[i]) di[i].value = el.value; });
+    clone.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;`;
+    document.body.appendChild(clone);
+    const ph = document.createElement("div"); ph.className = "tph"; ph.style.height = rect.height + "px"; rowEl.after(ph); rowEl.classList.add("tdragsrc");
+    document.documentElement.classList.add("tdrag-on");
+    tDrag = { id, rowEl, clone, ph, offY: rect.top - e.clientY, rowH: rect.height, listTop0, listBottom0, sc, startScroll: sc ? sc.scrollTop : 0, srcIndex: split.pots.findIndex((t) => t.id == id), index: -1 };
+    window.addEventListener("pointermove", onTMove); window.addEventListener("pointerup", onTUp); window.addEventListener("keydown", onTKey, true);
+  }
+  function onTKey(e) { if (e.key === "Escape" && tDrag) cancelT(); }
+  function onTMove(e) {
+    if (!tDrag) return;
+    const dScroll = (tDrag.sc ? tDrag.sc.scrollTop : 0) - tDrag.startScroll;
+    let top = e.clientY + tDrag.offY;
+    top = Math.max(tDrag.listTop0 - dScroll, Math.min(tDrag.listBottom0 - dScroll - tDrag.rowH, top));
+    tDrag.clone.style.top = top + "px";
+    const rows = [...root.querySelectorAll(".trow:not(.tdragsrc)")];
+    let idx = rows.length;
+    for (let i = 0; i < rows.length; i++) { const b = rows[i].getBoundingClientRect(); if (e.clientY < b.top + b.height / 2) { idx = i; break; } }
+    if (idx !== tDrag.index) { tDrag.index = idx; flipT(() => { if (idx >= rows.length) { rows.length ? rows[rows.length - 1].after(tDrag.ph) : root.querySelector(".tlist").appendChild(tDrag.ph); } else rows[idx].before(tDrag.ph); }); }
+  }
+  function flipT(mut) {
+    const list = root.querySelector(".tlist"); const nodes = [...list.querySelectorAll(".trow:not(.tdragsrc)")];
+    const first = new Map(); nodes.forEach((n) => first.set(n, n.getBoundingClientRect().top));
+    mut(); nodes.forEach((n) => { n.style.transition = "none"; n.style.transform = ""; }); void list.offsetWidth;
+    nodes.forEach((n) => { const dy = first.get(n) - n.getBoundingClientRect().top; if (Math.abs(dy) > 0.5) n.style.transform = `translateY(${dy}px)`; });
+    requestAnimationFrame(() => nodes.forEach((n) => { if (n.style.transform) { n.style.transition = "transform .16s var(--ease)"; n.style.transform = ""; } }));
+  }
+  function cleanupT() { document.documentElement.classList.remove("tdrag-on"); try { tDrag.clone.remove(); } catch (e) {} try { tDrag.ph.remove(); } catch (e) {} tDrag = null; }
+  function cancelT() { if (!tDrag) return; window.removeEventListener("pointermove", onTMove); window.removeEventListener("pointerup", onTUp); window.removeEventListener("keydown", onTKey, true); render(); cleanupT(); }
+  function onTUp() {
+    if (!tDrag) return; const d = tDrag;
+    window.removeEventListener("pointermove", onTMove); window.removeEventListener("pointerup", onTUp); window.removeEventListener("keydown", onTKey, true);
+    let idx = d.index < 0 ? d.srcIndex : d.index;
+    const from = split.pots.findIndex((t) => t.id == d.id); const [m] = split.pots.splice(from, 1);
+    if (idx > split.pots.length) idx = split.pots.length; if (idx < 0) idx = 0; split.pots.splice(idx, 0, m);
+    render(); cleanupT();
+    api.reorderPots(split.pots.map((t) => t.id)).catch((e) => { toast(e.message, true); refresh(); });
+  }
+
   return {
     unmount() {
       if (catDrag) cancelCatDrag();
       if (pDrag) cancelP();
+      if (tDrag) cancelT();
       catSettling = null;
       closeMenu(); removeConfirm();
       document.removeEventListener("click", onDocClick);

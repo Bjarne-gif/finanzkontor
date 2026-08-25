@@ -36,4 +36,11 @@ export const api = {
   updatePosten:     (id, patch) => req("PATCH", `/api/ledger/posten/${id}`, patch),
   deletePosten:     (id)        => req("DELETE", `/api/ledger/posten/${id}`),
   reorderPosten:    (ids)       => req("POST", "/api/ledger/posten/reorder", { ids }),
+
+  // Überschussverwendung / Aufteilung (Stufe 2)
+  splitState:       ()          => req("GET",  "/api/split/state"),
+  addPot:           (data)      => req("POST", "/api/split/pot", data),
+  updatePot:        (id, patch) => req("PATCH", `/api/split/pot/${id}`, patch),
+  deletePot:        (id)        => req("DELETE", `/api/split/pot/${id}`),
+  reorderPots:      (ids)       => req("POST", "/api/split/pot/reorder", { ids }),
 };

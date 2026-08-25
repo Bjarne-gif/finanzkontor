@@ -3,8 +3,8 @@ import os
 from pathlib import Path
 
 APP_NAME = "Finanzkontor"
-APP_VERSION = "0.3.1"
-STAGE = "Stufe 1 – Ledger"
+APP_VERSION = "0.4.0"
+STAGE = "Stufe 2 – Überschussverwendung"
 
 # Verzeichnis für ALLE privaten Daten (DB-Dateien + Keyfile).
 # Umzug = einfach diesen Ordner mitnehmen.
