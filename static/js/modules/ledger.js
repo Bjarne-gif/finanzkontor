@@ -175,6 +175,8 @@ function mount(root, ctx) {
   }
 
   function colWidths() {
+    // Große feste MINDEST-Breiten (bis Millionen bleibt alles fest stehen);
+    // erst wenn eine Zahl noch breiter wird (ab Milliarden), wächst die Spalte mit.
     const CH = 0.63; let mpx = 0, ypx = 0, empx = 0, eypx = 0;
     for (const c of data.categories) {
       for (const p of c.posten) { mpx = Math.max(mpx, fmtEUR(p.monthly).length * 13.5 * CH); ypx = Math.max(ypx, fmtEUR(p.yearly).length * 13.5 * CH); }
@@ -185,7 +187,12 @@ function mount(root, ctx) {
     eypx = Math.max(fmtEUR(t.einnahmen.yearly).length, fmtEUR(t.kosten.yearly).length) * 13 * CH;
     empx = Math.max(empx, fmtEUR(t.ueberschuss.monthly).length * 20 * CH);
     eypx = Math.max(eypx, fmtEUR(t.ueberschuss.yearly).length * 20 * CH);
-    return { mw: Math.max(92, Math.round(mpx) + 20), yw: Math.max(100, Math.round(ypx) + 22), emw: Math.max(150, Math.round(empx) + 22), eyw: Math.max(184, Math.round(eypx) + 24) };
+    return {
+      mw:  Math.max(165, Math.round(mpx) + 20),
+      yw:  Math.max(190, Math.round(ypx) + 22),
+      emw: Math.max(215, Math.round(empx) + 22),
+      eyw: Math.max(215, Math.round(eypx) + 24),
+    };
   }
 
   const rp = (cls, mb, yb, attrs = "") => `<div class="rp ${cls}" ${attrs}><div class="mbox">${mb}</div><div class="ybox">${yb}</div></div>`;

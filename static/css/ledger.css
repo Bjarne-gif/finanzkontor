@@ -2,7 +2,7 @@
 
 .ledger2{width:max-content;max-width:100%;margin:0 auto;display:flex;gap:28px;align-items:flex-start}
 @media(max-width:1000px){.ledger2{flex-direction:column}}
-.leftcol{flex:none;min-width:calc(18px + 168px + 150px + var(--mw,112px) + 26px + 7px + var(--yw,132px))}.evalcol{flex:none}
+.leftcol{flex:none;width:calc(18px + 230px + 260px + var(--mw,112px) + 26px + 7px + var(--yw,132px))}.evalcol{flex:none}
 .areatitle{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--text-faint);font-weight:700;padding:0 4px 9px}
 .rp{display:flex;gap:7px}
 .rp.hidden{display:none}
@@ -18,8 +18,8 @@
 .emptyc{text-align:center;color:var(--text-dim);width:100%}
 .mGrip{width:18px;flex:none;text-align:center;color:var(--text-faint);cursor:grab;font-size:11px;opacity:.35;user-select:none}
 .rp.row:hover .mGrip{opacity:.8}
-.mInfo{width:168px;flex:none;padding:2px 6px}
-.mName{flex:1;min-width:150px;padding:2px 4px;display:flex;align-items:center;gap:8px}
+.mInfo{width:230px;flex:none;padding:2px 6px}
+.mName{flex:1;min-width:260px;padding:2px 4px;display:flex;align-items:center;gap:8px}
 .mAmt{width:var(--mw,112px);flex:none;text-align:right;padding:2px 6px}
 .mMenu{width:26px;flex:none;text-align:center}
 .ybox .yw{width:100%;text-align:right;padding:2px 8px;white-space:nowrap}
@@ -71,7 +71,7 @@
 .xadd:hover{color:var(--accent)}
 .addfwrap{display:flex;gap:8px;padding:8px;align-items:center;width:100%}
 .addfwrap input{font:inherit;font-size:12.5px;color:var(--text);background:var(--surface-2);border:1px solid var(--border-soft);border-radius:var(--radius-sm);padding:6px 7px;min-width:0}
-.addfwrap .an-note{width:150px}.addfwrap .an-name{flex:1}.addfwrap .an-amt{width:84px;font-family:var(--font-num);text-align:right}
+.addfwrap .an-note{width:210px}.addfwrap .an-name{flex:1}.addfwrap .an-amt{width:84px;font-family:var(--font-num);text-align:right}
 .addfwrap .go{background:var(--accent);color:#10151b;border:none;font-weight:500;cursor:pointer;border-radius:var(--radius-sm);padding:6px 12px}
 .an-amt-y{width:100%;font:inherit;font-size:12.5px;font-family:var(--font-num);text-align:right;color:var(--text);background:var(--surface-2);border:1px solid var(--border-soft);border-radius:var(--radius-sm);padding:6px 7px}
 .an-amt-y:focus{outline:none;border-color:var(--accent-line)}
@@ -149,9 +149,9 @@ button.gplus:hover{opacity:1;color:var(--accent)}
 /* Zeilen-Grundraster (Label + Monatlich + Jährlich), einheitlich eingerückt */
 .psr{display:flex;align-items:center}
 .psr .pk{flex:1;min-width:0;padding:9px 15px;font-size:14px;text-align:left}
-.psr .pm{width:var(--emw,150px);flex:none;text-align:right;padding:9px 8px;font-family:var(--font-num);font-variant-numeric:tabular-nums;font-size:13.5px;white-space:nowrap}
+.psr .pm{width:var(--emw,200px);flex:none;text-align:right;padding:9px 8px;font-family:var(--font-num);font-variant-numeric:tabular-nums;font-size:13.5px;white-space:nowrap}
 .psr .pmenu{width:26px;flex:none}
-.psr .py{width:var(--eyw,184px);flex:none;text-align:right;padding:9px 8px;font-family:var(--font-num);font-variant-numeric:tabular-nums;font-size:13.5px;white-space:nowrap}
+.psr .py{width:var(--eyw,200px);flex:none;text-align:right;padding:9px 8px;font-family:var(--font-num);font-variant-numeric:tabular-nums;font-size:13.5px;white-space:nowrap}
 .psr .pos{color:var(--positive)}.psr .neg{color:var(--negative)}
 .psr .big{font-size:20px;font-weight:600}
 .psr .cur,.uebrig .cur{font-size:13.5px;font-weight:400;margin-right:-1px}
@@ -165,6 +165,7 @@ button.gplus:hover{opacity:1;color:var(--accent)}
 .psr.val .pk{color:var(--text);font-size:15px}
 /* Überschuss = Summenzeile (surface-3) */
 .psr.sum{background:var(--surface-3);border-top:1px solid var(--border)}
+.psr.sum .pm,.psr.sum .py{padding-right:15px}
 .psr.sum .pk{color:var(--text-dim);font-weight:600;text-transform:uppercase;letter-spacing:.05em;font-size:12px}
 /* Aufteilung liegt mit auf dem surface-Grund */
 .splitblock{margin:12px 0;background:var(--surface-2);padding:13px 15px 15px}
@@ -203,9 +204,9 @@ button.gplus:hover{opacity:1;color:var(--accent)}
 /* Übrig = Summenzeile, schließt den Rahmen unten ab */
 .uebrig{display:flex;align-items:center;margin-top:10px;background:var(--surface-3)}
 .uebrig .pk{flex:1;padding:13px 15px;font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);font-weight:700}
-.uebrig .pm{width:var(--emw,150px);flex:none;text-align:right;padding:13px 8px;font-family:var(--font-num);font-variant-numeric:tabular-nums;font-size:20px;font-weight:600;white-space:nowrap}
+.uebrig .pm{width:var(--emw,200px);flex:none;text-align:right;padding:13px 15px;font-family:var(--font-num);font-variant-numeric:tabular-nums;font-size:20px;font-weight:600;white-space:nowrap}
 .uebrig .pmenu{width:26px;flex:none}
-.uebrig .py{width:var(--eyw,184px);flex:none;text-align:right;padding:13px 8px;font-family:var(--font-num);font-variant-numeric:tabular-nums;font-size:13.5px;white-space:nowrap}
+.uebrig .py{width:var(--eyw,200px);flex:none;text-align:right;padding:13px 15px;font-family:var(--font-num);font-variant-numeric:tabular-nums;font-size:13.5px;white-space:nowrap}
 .uebrig.ok .pm,.uebrig.ok .py{color:var(--positive)}
 .uebrig.zero .pm,.uebrig.zero .py{color:var(--text-dim)}
 
