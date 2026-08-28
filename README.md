@@ -1,6 +1,6 @@
 # Finanzkontor
 
-<img width="2397" height="1192" alt="grafik" src="https://github.com/user-attachments/assets/e4b8100d-8319-48d3-b992-3139e9f2b8db" />
+<img width="2397" height="1192" alt="grafik" src="https://github.com/user-attachments/assets/e4b8100d-8319-48d3-b992-3139e9f2b8db"/>
 
 Browserbasiertes Tool für Einnahmen, Kosten und Vermögen – selbst gehostet,
 dockerfähig, Daten verschlüsselt. Modularer Aufbau: jede Funktion ist ein
