@@ -186,12 +186,12 @@ function mount(root, ctx) {
     empx = Math.max(fmtEUR(t.einnahmen.monthly).length, fmtEUR(t.kosten.monthly).length) * 13 * CH;
     eypx = Math.max(fmtEUR(t.einnahmen.yearly).length, fmtEUR(t.kosten.yearly).length) * 13 * CH;
     empx = Math.max(empx, fmtEUR(t.ueberschuss.monthly).length * 20 * CH);
-    eypx = Math.max(eypx, fmtEUR(t.ueberschuss.yearly).length * 20 * CH);
+    eypx = Math.max(eypx, fmtEUR(t.ueberschuss.yearly).length * 13.5 * CH);
     return {
       mw:  Math.max(165, Math.round(mpx) + 20),
       yw:  Math.max(190, Math.round(ypx) + 22),
-      emw: Math.max(215, Math.round(empx) + 22),
-      eyw: Math.max(215, Math.round(eypx) + 24),
+      emw: Math.max(200, Math.round(empx) + 22),
+      eyw: Math.max(180, Math.round(eypx) + 24),
     };
   }
 
@@ -208,11 +208,11 @@ function mount(root, ctx) {
     const c = computeSplit();
     const uCls = uM > 0 ? "pos" : uM < 0 ? "neg" : "";
     const lbl = uM < 0 ? "Verlust" : "Überschuss";
-    const head = `<div class="psr head"><span class="pk"></span><span class="pm">Monatlich</span><span class="pmenu"></span><span class="py">Jährlich</span></div>`;
+    const head = `<div class="psr head"><span class="pk"></span><span class="pm">Monatlich</span><span class="py">Jährlich</span></div>`;
     const psblock = `<div class="psblock">`
-      + `<div class="psr val"><span class="pk">Einnahmen</span><span class="pm pos">${cur(t.einnahmen.monthly)}</span><span class="pmenu"></span><span class="py pos">${cur(t.einnahmen.yearly)}</span></div>`
-      + `<div class="psr val"><span class="pk">Kosten</span><span class="pm neg">${cur(t.kosten.monthly)}</span><span class="pmenu"></span><span class="py neg">${cur(t.kosten.yearly)}</span></div>`
-      + `<div class="psr sum"><span class="pk">${lbl}</span><span class="pm big ${uCls}">${cur(uM)}</span><span class="pmenu"></span><span class="py ${uCls}">${cur(uY)}</span></div>`
+      + `<div class="psr val"><span class="pk">Einnahmen</span><span class="pm pos">${cur(t.einnahmen.monthly)}</span><span class="py pos">${cur(t.einnahmen.yearly)}</span></div>`
+      + `<div class="psr val"><span class="pk">Kosten</span><span class="pm neg">${cur(t.kosten.monthly)}</span><span class="py neg">${cur(t.kosten.yearly)}</span></div>`
+      + `<div class="psr sum"><span class="pk">${lbl}</span><span class="pm big ${uCls}">${cur(uM)}</span><span class="py ${uCls}">${cur(uY)}</span></div>`
       + `</div>`;
     const toepfe = c.rows.map((r) =>
       `<div class="trow${r.capped ? " capped" : ""}" data-id="${r.id}">`
@@ -226,7 +226,7 @@ function mount(root, ctx) {
     const split_ = `<div class="splitblock"><div class="pcsp-head"><span class="stitle">Überschussverwendung</span>`
       + `<span class="pcsp-basis">monatlich zu verteilen: <b>${fmtEUR(c.base)}</b></span></div>`
       + `<div class="tframe"><div class="tlist">${toepfe}</div><button class="taddbtn" data-taddpot>+ Topf hinzufügen</button></div></div>`;
-    const uebrigBlock = `<div class="uebrig ${c.uebrig > 0 ? "ok" : "zero"}"><span class="pk">Übrig</span><span class="pm big">${cur(c.uebrig)}</span><span class="pmenu"></span><span class="py">${cur(c.uebrig * 12)}</span></div>`;
+    const uebrigBlock = `<div class="uebrig ${c.uebrig > 0 ? "ok" : "zero"}"><span class="pk">Übrig</span><span class="pm big">${cur(c.uebrig)}</span><span class="py">${cur(c.uebrig * 12)}</span></div>`;
     return `<div class="plancard">${head}${psblock}${split_}${uebrigBlock}</div>`;
   }
 

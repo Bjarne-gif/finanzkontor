@@ -1,12 +1,10 @@
 # Finanzkontor
 
-<img width="2397" height="1192" alt="grafik" src="https://github.com/user-attachments/assets/e4b8100d-8319-48d3-b992-3139e9f2b8db"/>
-
 Browserbasiertes Tool für Einnahmen, Kosten und Vermögen – selbst gehostet,
 dockerfähig, Daten verschlüsselt. Modularer Aufbau: jede Funktion ist ein
 eigener Baustein, alle laufen im selben Rahmen.
 
-**Stand:** v0.4.0 · Stufe 1 (Ledger) abgeschlossen, Stufe 2
+**Stand:** v0.5.0 · Stufen 1–2 abgeschlossen, Stufe 3 (Vermögen) — Backend
 (Überschussverwendung) **fertig** (Backend + Oberfläche). Ledger: Kategorien &
 Posten mit Betrag + Intervall (monatlich/jährlich), Beträge kreuzweise
 editierbar, zeilenweises Anlegen direkt in der Tabelle, volle Tastatur-/Tab-
@@ -114,6 +112,7 @@ config.py         Konfiguration aus .env
 core/             Kern: auth, crypto, db, appstate, registry (Modul-System)
 modules/ledger/   Baustein Stufe 1 (Ledger: Kategorien, Posten, Summen)
 modules/split/    Baustein Stufe 2 (Überschussverwendung: Töpfe + Verteilung)
+modules/assets/   Baustein Stufe 3 (Vermögen: Klassen/Positionen, Kennzahlen)
 static/           Frontend (SPA): index.html, css/, js/
 data/             Private Daten (nicht im Git)
 ```

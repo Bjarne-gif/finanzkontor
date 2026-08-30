@@ -52,15 +52,15 @@ body {
 
 .brand { display: flex; align-items: center; gap: 11px; user-select: none; }
 .brand .mark {
-  width: 26px; height: 26px; flex: none;
+  width: 28px; height: 28px; flex: none;
   display: grid; place-items: center;
   color: var(--accent);
 }
 .brand .name {
   font-family: var(--font-display);
   font-weight: 600;
-  font-size: 17px;
-  letter-spacing: 0.14em;
+  font-size: 19px;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
 }
 .brand .name::after {

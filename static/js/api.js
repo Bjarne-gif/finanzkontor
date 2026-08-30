@@ -43,4 +43,15 @@ export const api = {
   updatePot:        (id, patch) => req("PATCH", `/api/split/pot/${id}`, patch),
   deletePot:        (id)        => req("DELETE", `/api/split/pot/${id}`),
   reorderPots:      (ids)       => req("POST", "/api/split/pot/reorder", { ids }),
+
+  // Vermögen / Net Worth (Stufe 3)
+  assetsState:        ()          => req("GET",  "/api/assets/state"),
+  addAssetClass:      (data)      => req("POST", "/api/assets/class", data),
+  updateAssetClass:   (id, patch) => req("PATCH", `/api/assets/class/${id}`, patch),
+  deleteAssetClass:   (id)        => req("DELETE", `/api/assets/class/${id}`),
+  reorderAssetClasses:(ids)       => req("POST", "/api/assets/class/reorder", { ids }),
+  addAssetPosition:      (data)      => req("POST", "/api/assets/position", data),
+  updateAssetPosition:   (id, patch) => req("PATCH", `/api/assets/position/${id}`, patch),
+  deleteAssetPosition:   (id)        => req("DELETE", `/api/assets/position/${id}`),
+  reorderAssetPositions: (ids)       => req("POST", "/api/assets/position/reorder", { ids }),
 };

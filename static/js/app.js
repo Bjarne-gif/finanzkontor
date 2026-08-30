@@ -119,40 +119,76 @@ function renderStatus(state) {
 /* ---------- Hauptfläche ---------- */
 const mountedPanels = [];
 
-async function renderModules(state) {
-  const mount = $("#modules");
-  // vorherige Panels aufräumen
-  mountedPanels.splice(0).forEach((p) => { try { p.unmount && p.unmount(); } catch (_) {} });
+/* ---------- Navigation: Reiter (nur Module MIT Panel) ---------- */
+const ACTIVE_TAB_KEY = "fk_active_tab";
+const TAB_LABELS = { ledger: "Haushalt", assets: "Vermögen" };
 
-  if (state.modules && state.modules.length) {
-    mount.innerHTML = "";
-    for (const m of state.modules) {
-      const host = document.createElement("section");
-      host.className = "module-host";
-      host.dataset.module = m.id;
-      mount.appendChild(host);
-      if (m.panel) {
-        try {
-          const mod = await import("/" + m.panel);
-          const inst = mod.default;
-          await inst.mount(host, { api, store, bus, toast });
-          mountedPanels.push(inst);
-        } catch (e) {
-          host.innerHTML = `<p class="muted">Modul „${m.name}" konnte nicht geladen werden.</p>`;
-          console.error(e);
-        }
-      }
-    }
+function panelModules(state) {
+  return (state.modules || []).filter((m) => m.panel);
+}
+function activeModule(state) {
+  const mods = panelModules(state);
+  let id = null;
+  try { id = localStorage.getItem(ACTIVE_TAB_KEY); } catch (_) {}
+  return mods.find((m) => m.id === id) || mods[0] || null;
+}
+function tabLabel(m) { return TAB_LABELS[m.id] || m.name; }
+
+function renderTabs(state) {
+  const el = $("#nav-tabs");
+  if (!el) return;
+  const mods = panelModules(state);
+  const active = activeModule(state);
+  el.innerHTML = mods.map((m) => {
+    const on = active && m.id === active.id ? " active" : "";
+    return `<span class="tab${on}" data-mod="${m.id}">${tabLabel(m)}` +
+      `<span class="uline"><span class="bar"></span><span class="hook"></span></span></span>`;
+  }).join("");
+  el.querySelectorAll(".tab").forEach((t) =>
+    t.addEventListener("click", () => switchTab(t.dataset.mod)));
+}
+
+function switchTab(id) {
+  const state = store.get("state");
+  if (!state) return;
+  if (!panelModules(state).some((m) => m.id === id)) return;
+  try { localStorage.setItem(ACTIVE_TAB_KEY, id); } catch (_) {}
+  renderTabs(state);
+  renderModules(state);
+}
+
+async function renderModules(state) {
+  const mountEl = $("#modules");
+  // vorheriges Panel sauber abbauen
+  mountedPanels.splice(0).forEach((p) => { try { p && p.unmount && p.unmount(); } catch (_) {} });
+
+  const mods = panelModules(state);
+  if (!mods.length) {
+    mountEl.innerHTML = `
+      <div class="empty">
+        <span class="badge">${state.stage}</span>
+        <h1>Das Fundament steht.</h1>
+        <p>Zugang, verschlüsselte Speicherung, DB-Auswahl und die Themes sind fertig.
+           Ab hier wachsen die Bausteine – jeder als eigenes Modul, alle im selben Rahmen.</p>
+      </div>`;
     return;
   }
 
-  mount.innerHTML = `
-    <div class="empty">
-      <span class="badge">${state.stage}</span>
-      <h1>Das Fundament steht.</h1>
-      <p>Zugang, verschlüsselte Speicherung, DB-Auswahl und die Themes sind fertig.
-         Ab hier wachsen die Bausteine – jeder als eigenes Modul, alle im selben Rahmen.</p>
-    </div>`;
+  const active = activeModule(state);
+  mountEl.innerHTML = "";
+  const host = document.createElement("section");
+  host.className = "module-host";
+  host.dataset.module = active.id;
+  mountEl.appendChild(host);
+  try {
+    const mod = await import("/" + active.panel);
+    // mount() liefert { unmount } zurück – DAS merken wir uns (nicht mod.default).
+    const inst = await mod.default.mount(host, { api, store, bus, toast });
+    if (inst && inst.unmount) mountedPanels.push(inst);
+  } catch (e) {
+    host.innerHTML = `<p class="muted">Modul „${active.name}" konnte nicht geladen werden.</p>`;
+    console.error(e);
+  }
 }
 
 /* ---------- Rehydrate ---------- */
@@ -161,6 +197,7 @@ export async function rehydrate() {
   store.set("state", state);
   renderDbPicker(state);
   renderStatus(state);
+  renderTabs(state);
   renderModules(state);
   return state;
 }
