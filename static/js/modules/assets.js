@@ -40,9 +40,9 @@ function mount(root, ctx) {
   let tmpN = 1;
 
   let ui;
-  try { ui = { drafts: {}, openId: null, confirmDelete: null, ...JSON.parse(localStorage.getItem(UIKEY) || "{}") }; }
-  catch (_) { ui = { drafts: {}, openId: null, confirmDelete: null }; }
-  if (!ui.drafts) ui.drafts = {};
+  try { ui = { drafts: {}, openId: null, confirmDelete: null, marked: ["netto"], ...JSON.parse(localStorage.getItem(UIKEY) || "{}") }; }
+  catch (_) { ui = { drafts: {}, openId: null, confirmDelete: null, marked: ["netto"] }; }
+  if (!ui.drafts) ui.drafts = {}; if (!Array.isArray(ui.marked)) ui.marked = ["netto"];
   const saveUi = debounce(() => { try { localStorage.setItem(UIKEY, JSON.stringify(ui)); } catch (_) {} }, 200);
 
   // Body-Ebene: Popover / Zeilenmenü / Overlay (über allem)
@@ -69,17 +69,17 @@ function mount(root, ctx) {
         <div class="vm-real" id="vmReal" style="display:none">
           <div class="evalgrid">
             <div class="tiles">
-              <div class="tile hero span2"><div class="tlbl">Gesamtvermögen</div><div class="tbig num" data-k="netto">0,00 €</div><div class="tsub">Besitz <span class="num" data-k="besitz">0,00 €</span> &nbsp;−&nbsp; Schulden <span class="num" data-k="schulden">0,00 €</span></div></div>
-              <div class="tile"><div class="tlbl">Griffbereit</div><div class="vm-tval num" data-k="griff">0,00 €</div><div class="thint">liquide Mittel</div></div>
-              <div class="tile"><div class="tlbl">Notgroschen-Reichweite</div><div class="vm-tval num" data-k="run">–</div><div class="thint">liquide ÷ Ausgaben/Mon.</div></div>
-              <div class="tile"><div class="tlbl">Eigenkapitalquote</div><div class="vm-tval num" data-k="ek">0 %</div><div class="thint">Netto ÷ Besitz</div></div>
-              <div class="tile"><div class="tlbl">Verschuldungsgrad</div><div class="vm-tval num" data-k="debt">0 %</div><div class="thint">Schulden ÷ Besitz</div></div>
-              <div class="tile span2"><div class="tlbl">Klumpenrisiko</div><div class="vm-tval num" data-k="clump">0 %</div><div class="thint" data-k="clumpname">größte Einzelposition</div></div>
-              <div class="tile"><div class="tlbl">Sachwertquote</div><div class="vm-tval num" data-k="sach">0 %</div><div class="thint">Sachwerte ÷ Besitz</div></div>
-              <div class="tile"><div class="tlbl">Liquide Quote</div><div class="vm-tval num" data-k="cash">0 %</div><div class="thint">liquide ÷ Besitz</div></div>
-              <div class="tile"><div class="tlbl">Illiquide Quote</div><div class="vm-tval num" data-k="anlage">0 %</div><div class="thint">illiquide ÷ Besitz</div></div>
-              <div class="tile"><div class="tlbl">Risikoquote</div><div class="vm-tval num" data-k="risk">0 %</div><div class="thint">mittel + hoch ÷ Besitz</div></div>
-              <div class="tile span2"><div class="tlbl">Sicher angelegt</div><div class="vm-tval num" data-k="safe">0 %</div><div class="thint">sicher ÷ Besitz</div></div>
+              <div class="tile hero span2" data-tile="netto"><div class="tlbl">Nettovermögen</div><div class="tbig num" data-k="netto">0,00 €</div><div class="tsub">Besitz <span class="num" data-k="besitz">0,00 €</span> &nbsp;−&nbsp; Schulden <span class="num" data-k="schulden">0,00 €</span></div></div>
+              <div class="tile" data-tile="griff""><div class="tlbl">Griffbereit</div><div class="vm-tval num" data-k="griff">0,00 €</div><div class="thint">liquide Mittel</div></div>
+              <div class="tile" data-tile="run""><div class="tlbl">Notgroschen-Reichweite</div><div class="vm-tval num" data-k="run">–</div><div class="thint">liquide ÷ Ausgaben/Mon.</div></div>
+              <div class="tile" data-tile="ek""><div class="tlbl">Eigenkapitalquote</div><div class="vm-tval num" data-k="ek">0 %</div><div class="thint">Netto ÷ Besitz</div></div>
+              <div class="tile" data-tile="debt""><div class="tlbl">Verschuldungsgrad</div><div class="vm-tval num" data-k="debt">0 %</div><div class="thint">Schulden ÷ Besitz</div></div>
+              <div class="tile span2" data-tile="clump"><div class="tlbl">Klumpenrisiko</div><div class="vm-tval num" data-k="clump">0 %</div><div class="thint" data-k="clumpname">größte Einzelposition</div></div>
+              <div class="tile" data-tile="sach""><div class="tlbl">Sachwertquote</div><div class="vm-tval num" data-k="sach">0 %</div><div class="thint">Sachwerte ÷ Besitz</div></div>
+              <div class="tile" data-tile="cash""><div class="tlbl">Liquide Quote</div><div class="vm-tval num" data-k="cash">0 %</div><div class="thint">liquide ÷ Besitz</div></div>
+              <div class="tile" data-tile="anlage""><div class="tlbl">Illiquide Quote</div><div class="vm-tval num" data-k="anlage">0 %</div><div class="thint">illiquide ÷ Besitz</div></div>
+              <div class="tile" data-tile="risk""><div class="tlbl">Risikoquote</div><div class="vm-tval num" data-k="risk">0 %</div><div class="thint">mittel + hoch ÷ Besitz</div></div>
+              <div class="tile span2" data-tile="safe"><div class="tlbl">Sicher angelegt</div><div class="vm-tval num" data-k="safe">0 %</div><div class="thint">sicher ÷ Besitz</div></div>
             </div>
             <div class="sidecol">
               <div class="panel"><h4>Aufteilung im Detail</h4><div class="dbody" id="vmAlloc"></div></div>
@@ -161,6 +161,16 @@ function mount(root, ctx) {
       </div>${rows}${ghost}${sum}</div>`;
   }
 
+  function applyMarks() {
+    const set = new Set(ui.marked || []);
+    root.querySelectorAll(".tile[data-tile]").forEach((t) => t.classList.toggle("marked", set.has(t.dataset.tile)));
+  }
+  function toggleMark(key) {
+    const set = new Set(ui.marked || []);
+    set.has(key) ? set.delete(key) : set.add(key);
+    ui.marked = [...set]; saveUi(); applyMarks();
+  }
+
   function render() {
     setW(valW());
     const colB = `<div class="trow colhead"><span class="h h-info">Information</span><span class="h h-name">Posten</span><span class="h h-wert">Wert</span><span class="h h-ant">Anteil am Besitz</span></div>`;
@@ -178,6 +188,8 @@ function mount(root, ctx) {
     recompute();
     if (ui.openId) renderPop();
     if (ui.confirmDelete) renderConfirm();
+    wireDrag();
+    applyMarks();
   }
 
   /* ---------- Recompute (Live) ---------- */
@@ -321,6 +333,7 @@ function mount(root, ctx) {
 
   root.addEventListener("click", (e) => {
     const t = e.target;
+    const tile = t.closest(".tile[data-tile]"); if (tile) { toggleMark(tile.dataset.tile); return; }
     if (t.classList.contains("rmenu-btn")) { const pr = t.closest(".prow"), g = t.closest(".gclass"); const pid = pr.dataset.pid;
       if (rmTarget && rmTarget.pid == pid && rmenu.classList.contains("show")) hideRowMenu(); else openRowMenu(g.dataset.cid, pid, t); e.stopPropagation(); return; }
     if (t.classList.contains("edit")) { const g = t.closest(".gclass"), cid = g.dataset.cid;
@@ -425,6 +438,220 @@ function mount(root, ctx) {
   q("#vmPre").querySelectorAll("button").forEach((b) => b.addEventListener("click", () => { range.value = b.dataset.v; updRegler(); }));
   q("#vmBez").querySelectorAll("button").forEach((b) => b.addEventListener("click", () => { q("#vmBez").querySelectorAll("button").forEach((x) => x.classList.remove("on")); b.classList.add("on"); reglerCur = b.dataset.b; updRegler(); }));
 
+  /* ---------- Drag-and-drop (wie Ledger-Engine) ---------- */
+  let posDrag = null, catDrag = null;
+
+  function wireDrag() {
+    root.querySelectorAll(".gclass .ghead > .grip").forEach((g) => g.addEventListener("pointerdown", onCatGrip));
+    root.querySelectorAll(".prow:not(.ghost) > .grip").forEach((g) => g.addEventListener("pointerdown", onPosGrip));
+  }
+
+  // --- Positionen ---
+  function onPosGrip(e) {
+    if (e.button != null && e.button !== 0) return;
+    const row = e.target.closest(".prow"), g = e.target.closest(".gclass");
+    if (!row || !g || row.dataset.ghost) return;
+    startPosDrag(row.dataset.pid, g.dataset.cid, e);
+  }
+  function startPosDrag(pid, cid, e) {
+    const c = findClass(cid); if (!c) return;
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    e.preventDefault();
+    const rowEl = q(`.prow[data-pid="${pid}"]`); if (!rowEl) return;
+    const rect = rowEl.getBoundingClientRect();
+    const clone = rowEl.cloneNode(true); clone.classList.add("pclone");
+    clone.style.width = rect.width + "px"; clone.style.left = rect.left + "px"; clone.style.top = rect.top + "px";
+    wrap.appendChild(clone); wrap.classList.add("dragging");
+    const other = q(c.kind === "asset" ? "#vmSchulden" : "#vmBesitz"); if (other) other.classList.add("vm-locked");
+    const ph = document.createElement("div"); ph.className = "trow prow ph"; ph.style.height = rect.height + "px";
+    rowEl.classList.add("dragsrc"); rowEl.after(ph);
+    posDrag = { pid, cid, kind: c.kind, rowEl, clone, ph, rowH: rect.height, offY: rect.top - e.clientY, lastY: e.clientY, valid: true, dst: { cid, index: 0 }, raf: 0 };
+    window.addEventListener("pointermove", onPMove);
+    window.addEventListener("pointerup", onPUp);
+    window.addEventListener("pointercancel", cancelP);
+    window.addEventListener("keydown", onPKey, true);
+    updateP();
+  }
+  function onPMove(e) { if (!posDrag) return; posDrag.lastY = e.clientY; updateP(); autoScrollP(); }
+  function rowsOfClass(g) { return [...g.querySelectorAll(".prow:not(.ghost)")].filter((x) => !x.classList.contains("dragsrc") && !x.classList.contains("ph")); }
+  function blockZone(kind) {
+    const led = q(kind === "asset" ? "#vmBesitz" : "#vmSchulden");
+    const gs = led ? [...led.querySelectorAll(".gclass")] : [];
+    if (!gs.length) { const r = led ? led.getBoundingClientRect() : { top: 0, bottom: 0 }; return { top: r.top, bottom: r.bottom }; }
+    return { top: gs[0].getBoundingClientRect().top, bottom: gs[gs.length - 1].getBoundingClientRect().bottom };
+  }
+  function clampCloneTop(kind, wantTop, cloneH) {
+    const z = blockZone(kind);
+    const hi = Math.max(z.top, z.bottom - cloneH);   // niemals degeneriert
+    return Math.max(z.top, Math.min(hi, wantTop));
+  }
+  function validGels() {
+    const arr = posDrag.kind === "asset" ? data.besitz : data.schulden;
+    return { arr, gels: arr.map((c) => q(`.gclass[data-cid="${c.id}"]`)).filter(Boolean) };
+  }
+  function hitTestPos(y) {
+    const { arr, gels } = validGels();
+    if (!gels.length) return null;
+    const rowH = posDrag.rowH || 32;
+    const firstTop = gels[0].getBoundingClientRect().top;
+    const lastBottom = gels[gels.length - 1].getBoundingClientRect().bottom;
+    if (y <= firstTop) return { cid: arr[0].id, index: 0 };                                    // oben am colhead begrenzt
+    if (y >= lastBottom) return { cid: arr[arr.length - 1].id, index: rowsOfClass(gels[gels.length - 1]).length }; // unten am grow begrenzt
+    for (let ci = 0; ci < arr.length; ci++) {
+      const g = gels[ci], r = g.getBoundingClientRect();
+      const nextTop = ci < arr.length - 1 ? gels[ci + 1].getBoundingClientRect().top : lastBottom;
+      if (y >= r.top && y < nextTop) {
+        const ghead = g.querySelector(".ghead");
+        const startY = ghead ? ghead.getBoundingClientRect().bottom : r.top;
+        const n = rowsOfClass(g).length;
+        // stabile Index-Formel: Offset ÷ Zeilenhöhe, 50%-Schwelle, kein Feedback-Loop
+        let index = Math.floor((y - startY) / rowH + 0.5);
+        index = Math.max(0, Math.min(n, index));
+        return { cid: arr[ci].id, index };
+      }
+    }
+    return { cid: arr[0].id, index: 0 };
+  }
+  function placePhPos(cid, index) {
+    const g = q(`.gclass[data-cid="${cid}"]`); if (!g) return;
+    const rows = [...g.querySelectorAll(".prow:not(.ghost)")].filter((x) => !x.classList.contains("dragsrc") && !x.classList.contains("ph"));
+    if (index >= rows.length) { const ghost = g.querySelector(".ghost"); if (ghost) ghost.before(posDrag.ph); else g.appendChild(posDrag.ph); }
+    else rows[index].before(posDrag.ph);
+  }
+  function updateP() {
+    const D = posDrag; if (!D) return;
+    D.clone.style.top = clampCloneTop(D.kind, D.lastY + D.offY, D.rowH) + "px";
+    const t = hitTestPos(D.lastY);
+    if (t) { D.valid = true; D.dst = { cid: t.cid, index: t.index }; placePhPos(t.cid, t.index); }
+  }
+  function autoScrollP() {
+    const D = posDrag; if (!D || D.raf || !canvas) return;
+    const EDGE = 56;
+    const step = () => {
+      if (!posDrag) return; const rr = canvas.getBoundingClientRect(), yy = posDrag.lastY; let dd = 0;
+      if (yy < rr.top + EDGE) dd = -(EDGE - (yy - rr.top)); else if (yy > rr.bottom - EDGE) dd = (EDGE - (rr.bottom - yy));
+      if (dd === 0) { posDrag.raf = 0; return; }
+      const before = canvas.scrollTop; canvas.scrollTop = Math.max(0, before + dd * 0.3);
+      if (canvas.scrollTop !== before) { updateP(); posDrag.raf = requestAnimationFrame(step); } else posDrag.raf = 0;
+    };
+    posDrag.raf = requestAnimationFrame(step);
+  }
+  function onPKey(e) { if (e.key === "Escape" && posDrag) { e.preventDefault(); cancelP(); } }
+  function detachP() { window.removeEventListener("pointermove", onPMove); window.removeEventListener("pointerup", onPUp); window.removeEventListener("pointercancel", cancelP); window.removeEventListener("keydown", onPKey, true); }
+  function cleanupP() { const D = posDrag; if (!D) return; if (D.raf) cancelAnimationFrame(D.raf); try { D.clone.remove(); } catch (_) {} try { D.ph.remove(); } catch (_) {} if (D.rowEl) D.rowEl.classList.remove("dragsrc"); wrap.classList.remove("dragging"); root.querySelectorAll(".ledger.vm-locked").forEach((x) => x.classList.remove("vm-locked")); posDrag = null; }
+  function cancelP() { detachP(); cleanupP(); render(); }
+  async function onPUp() {
+    const D = posDrag; if (!D) return; detachP();
+    if (!D.valid || !D.dst || D.dst.index == null) { cleanupP(); render(); return; }
+    const src = findClass(D.cid); const p = src.positions.find((x) => x.id == D.pid); const dst = findClass(D.dst.cid);
+    if (!p || !dst) { cleanupP(); render(); return; }
+    const sameClass = D.dst.cid == D.cid;
+    const curIdx = src.positions.indexOf(p);
+    // No-Op-Schutz: gleiche Klasse, gleiche Stelle
+    if (sameClass && (D.dst.index === curIdx || D.dst.index === curIdx)) { /* trotzdem reordern ist harmlos */ }
+    src.positions.splice(curIdx, 1);
+    dst.positions.splice(D.dst.index, 0, p);
+    cleanupP(); render();
+    try {
+      await flushAll();
+      if (sameClass) await api.reorderAssetPositions(dst.positions.map((x) => x.id));
+      else { await api.updateAssetPosition(p.id, { class_id: dst.id }); await api.reorderAssetPositions(dst.positions.map((x) => x.id)); }
+    } catch (e) { toast(e.message, true); refresh(); }
+  }
+
+  // --- Klassen (innerhalb Besitz bzw. Schulden) ---
+  function onCatGrip(e) {
+    if (e.button != null && e.button !== 0) return;
+    const g = e.target.closest(".gclass"); if (!g) return;
+    startCatDrag(g.dataset.cid, e);
+  }
+  function startCatDrag(cid, e) {
+    const c = findClass(cid); if (!c) return;
+    const arr = c.kind === "asset" ? data.besitz : data.schulden;
+    if (arr.length < 2) return;
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    e.preventDefault();
+    const gEl = q(`.gclass[data-cid="${cid}"]`); const rect = gEl.getBoundingClientRect();
+    const clone = gEl.cloneNode(true); clone.classList.add("cclone");
+    clone.style.width = rect.width + "px"; clone.style.left = rect.left + "px"; clone.style.top = rect.top + "px";
+    wrap.appendChild(clone); wrap.classList.add("dragging");
+    const other = q(c.kind === "asset" ? "#vmSchulden" : "#vmBesitz"); if (other) other.classList.add("vm-locked");
+    gEl.style.visibility = "hidden";                                   // Platz bleibt (kein Reflow/Abheben)
+    const gels = {}, mc0 = {}; arr.forEach((cc) => { const g = q(`.gclass[data-cid="${cc.id}"]`); gels[cc.id] = g; const r = g.getBoundingClientRect(); mc0[cc.id] = (r.top + r.bottom) / 2; });
+    const z = blockZone(c.kind);
+    catDrag = { cid, kind: c.kind, gEl, clone, gels, order0: arr.slice(), mc0, mcCid: mc0[cid], fromIndex: arr.findIndex((cc) => cc.id == cid),
+      blockH: rect.height, footprint: rect.height + 8, cloneOffY: rect.top - e.clientY,
+      listTop0: z.top, listBottom0: z.bottom, sc: canvas, startScroll: canvas ? canvas.scrollTop : 0, lastY: e.clientY, toIndex: arr.findIndex((cc) => cc.id == cid), raf: 0 };
+    window.addEventListener("pointermove", onCMove);
+    window.addEventListener("pointerup", onCUp);
+    window.addEventListener("pointercancel", cancelC);
+    window.addEventListener("keydown", onCKey, true);
+    updateC();
+  }
+  function onCMove(e) { if (!catDrag) return; catDrag.lastY = e.clientY; updateC(); autoScrollC(); }
+  function updateC() {
+    const D = catDrag; if (!D) return;
+    const y = D.lastY, dScroll = D.sc ? (D.sc.scrollTop - D.startScroll) : 0;
+    let cloneTop = y + D.cloneOffY;
+    const lt = D.listTop0 - dScroll, lb = D.listBottom0 - dScroll;
+    cloneTop = Math.max(lt, Math.min(Math.max(lt, lb - D.blockH), cloneTop));   // Klon hart in den Block geclamped
+    D.clone.style.top = cloneTop + "px";
+    const cloneBot = cloneTop + D.blockH;
+    let below = 0, above = 0;
+    D.order0.forEach((oc) => {
+      if (oc.id == D.cid) return;
+      const mcn = D.mc0[oc.id] - dScroll;
+      if (D.mc0[oc.id] > D.mcCid) { if (cloneBot > mcn) below++; }   // untere Kante überschreitet 50% -> schieben
+      else { if (cloneTop < mcn) above++; }                          // obere Kante überschreitet 50% -> schieben
+    });
+    const toIndex = D.fromIndex + below - above;
+    if (toIndex !== D.toIndex) { D.toIndex = toIndex; applyCatShift(); }
+  }
+  function applyCatShift() {
+    const D = catDrag; if (!D) return; const { order0, cid, fromIndex, toIndex, footprint } = D;
+    order0.forEach((oc, i) => {
+      if (oc.id == cid) return; let sh = 0;
+      if (toIndex > fromIndex) { if (i > fromIndex && i <= toIndex) sh = -footprint; }
+      else if (toIndex < fromIndex) { if (i >= toIndex && i < fromIndex) sh = footprint; }
+      const g = D.gels[oc.id]; if (g) { g.style.transition = "transform .16s ease"; g.style.transform = sh ? `translateY(${sh}px)` : ""; }
+    });
+  }
+  function autoScrollC() {
+    const D = catDrag; if (!D || D.raf || !canvas) return;
+    const EDGE = 56;
+    const step = () => {
+      if (!catDrag) return; const rr = canvas.getBoundingClientRect(), yy = catDrag.lastY; let dd = 0;
+      if (yy < rr.top + EDGE) dd = -1; else if (yy > rr.bottom - EDGE) dd = 1;
+      if (dd === 0) { catDrag.raf = 0; return; }
+      const di = dd < 0 ? (rr.top + EDGE - yy) : (yy - (rr.bottom - EDGE)); const sp = Math.min(20, 4 + di / 2.4);
+      const before = canvas.scrollTop; canvas.scrollTop = Math.max(0, before + dd * sp);
+      if (canvas.scrollTop !== before) { updateC(); catDrag.raf = requestAnimationFrame(step); } else catDrag.raf = 0;
+    };
+    catDrag.raf = requestAnimationFrame(step);
+  }
+  function onCKey(e) { if (e.key === "Escape" && catDrag) { e.preventDefault(); cancelC(); } }
+  function detachC() { window.removeEventListener("pointermove", onCMove); window.removeEventListener("pointerup", onCUp); window.removeEventListener("pointercancel", cancelC); window.removeEventListener("keydown", onCKey, true); }
+  function cleanupC() {
+    const D = catDrag; if (!D) return; if (D.raf) cancelAnimationFrame(D.raf);
+    try { D.clone.remove(); } catch (_) {}
+    if (D.gEl) D.gEl.style.visibility = "";
+    D.order0.forEach((oc) => { const g = D.gels[oc.id]; if (g) { g.style.transition = ""; g.style.transform = ""; } });
+    wrap.classList.remove("dragging");
+    root.querySelectorAll(".ledger.vm-locked").forEach((x) => x.classList.remove("vm-locked"));
+    catDrag = null;
+  }
+  function cancelC() { detachC(); cleanupC(); }
+  async function onCUp() {
+    const D = catDrag; if (!D) return; detachC();
+    const arr = D.kind === "asset" ? data.besitz : data.schulden;
+    const to = Math.max(0, Math.min(arr.length - 1, D.toIndex));
+    const cur = arr.findIndex((c) => c.id == D.cid);
+    if (cur !== to) { const [moved] = arr.splice(cur, 1); arr.splice(to, 0, moved); }
+    cleanupC(); render();
+    try { await flushAll(); await api.reorderAssetClasses([...data.besitz.map((c) => c.id), ...data.schulden.map((c) => c.id)]); }
+    catch (e) { toast(e.message, true); refresh(); }
+  }
+
   /* ---------- Doc-Listener (schließen) ---------- */
   const onDocClick = (e) => {
     if (ui.openId && !e.target.closest(".vm-pop") && !e.target.classList.contains("edit")) { ui.openId = null; hidePop(); saveUi(); }
@@ -440,6 +667,8 @@ function mount(root, ctx) {
   return {
     unmount() {
       flushAll();
+      if (posDrag) { detachP(); cleanupP(); }
+      if (catDrag) { detachC(); cleanupC(); }
       document.removeEventListener("click", onDocClick);
       window.removeEventListener("resize", onWinChange);
       window.removeEventListener("scroll", onWinChange, true);
