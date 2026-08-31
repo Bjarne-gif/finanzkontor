@@ -459,13 +459,22 @@ function mount(root, ctx) {
     e.preventDefault();
     const rowEl = q(`.prow[data-pid="${pid}"]`); if (!rowEl) return;
     const rect = rowEl.getBoundingClientRect();
+    const arr = c.kind === "asset" ? data.besitz : data.schulden;
+    // flache, geordnete Zeilenliste des Blocks + Start-Mittelpunkte (vor dem Ausblenden)
+    const orderedRows = [];
+    arr.forEach((cc) => cc.positions.forEach((p) => { const r = q(`.prow[data-pid="${p.id}"]`); if (r) { const b = r.getBoundingClientRect(); orderedRows.push({ pid: p.id, cid: cc.id, mc0: (b.top + b.bottom) / 2 }); } }));
+    const fromGlobalIdx = orderedRows.findIndex((o) => o.pid == pid);
+    const draggedMc0 = orderedRows[fromGlobalIdx] ? orderedRows[fromGlobalIdx].mc0 : (rect.top + rect.bottom) / 2;
     const clone = rowEl.cloneNode(true); clone.classList.add("pclone");
+    const si = rowEl.querySelectorAll("input"), di = clone.querySelectorAll("input"); si.forEach((el, i) => { if (di[i]) di[i].value = el.value; });
     clone.style.width = rect.width + "px"; clone.style.left = rect.left + "px"; clone.style.top = rect.top + "px";
     wrap.appendChild(clone); wrap.classList.add("dragging");
     const other = q(c.kind === "asset" ? "#vmSchulden" : "#vmBesitz"); if (other) other.classList.add("vm-locked");
     const ph = document.createElement("div"); ph.className = "trow prow ph"; ph.style.height = rect.height + "px";
-    rowEl.classList.add("dragsrc"); rowEl.after(ph);
-    posDrag = { pid, cid, kind: c.kind, rowEl, clone, ph, rowH: rect.height, offY: rect.top - e.clientY, lastY: e.clientY, valid: true, dst: { cid, index: 0 }, raf: 0 };
+    rowEl.after(ph); rowEl.classList.add("dragsrc");
+    const z = blockZone(c.kind);
+    posDrag = { pid, cid, kind: c.kind, rowEl, clone, ph, rowH: rect.height, cloneOffY: rect.top - e.clientY, orderedRows, fromGlobalIdx, draggedMc0,
+      listTop0: z.top, listBottom0: z.bottom, sc: canvas, startScroll: canvas ? canvas.scrollTop : 0, lastY: e.clientY, dstCid: cid, dstIndex: -1, raf: 0 };
     window.addEventListener("pointermove", onPMove);
     window.addEventListener("pointerup", onPUp);
     window.addEventListener("pointercancel", cancelP);
@@ -473,84 +482,96 @@ function mount(root, ctx) {
     updateP();
   }
   function onPMove(e) { if (!posDrag) return; posDrag.lastY = e.clientY; updateP(); autoScrollP(); }
-  function rowsOfClass(g) { return [...g.querySelectorAll(".prow:not(.ghost)")].filter((x) => !x.classList.contains("dragsrc") && !x.classList.contains("ph")); }
   function blockZone(kind) {
     const led = q(kind === "asset" ? "#vmBesitz" : "#vmSchulden");
     const gs = led ? [...led.querySelectorAll(".gclass")] : [];
     if (!gs.length) { const r = led ? led.getBoundingClientRect() : { top: 0, bottom: 0 }; return { top: r.top, bottom: r.bottom }; }
     return { top: gs[0].getBoundingClientRect().top, bottom: gs[gs.length - 1].getBoundingClientRect().bottom };
   }
-  function clampCloneTop(kind, wantTop, cloneH) {
-    const z = blockZone(kind);
-    const hi = Math.max(z.top, z.bottom - cloneH);   // niemals degeneriert
-    return Math.max(z.top, Math.min(hi, wantTop));
+  // kontinuierlicher FLIP: Nachbarzeilen des Blocks gleiten sanft
+  function flipP(kind, mutator) {
+    const led = q(kind === "asset" ? "#vmBesitz" : "#vmSchulden"); if (!led) { mutator(); return; }
+    const nodes = [...led.querySelectorAll(".prow:not(.dragsrc), .ghead, .srow, .grow")];
+    const first = new Map(); nodes.forEach((n) => first.set(n, n.getBoundingClientRect().top));
+    mutator();
+    nodes.forEach((n) => { n.style.transition = "none"; n.style.transform = ""; });
+    void led.offsetWidth;
+    nodes.forEach((n) => { const dy = first.get(n) - n.getBoundingClientRect().top; if (Math.abs(dy) > 0.5) n.style.transform = `translateY(${dy}px)`; });
+    requestAnimationFrame(() => { nodes.forEach((n) => { if (n.style.transform) { n.style.transition = "transform .16s ease"; n.style.transform = ""; } }); });
   }
-  function validGels() {
-    const arr = posDrag.kind === "asset" ? data.besitz : data.schulden;
-    return { arr, gels: arr.map((c) => q(`.gclass[data-cid="${c.id}"]`)).filter(Boolean) };
-  }
-  function hitTestPos(y) {
-    const { arr, gels } = validGels();
-    if (!gels.length) return null;
-    const rowH = posDrag.rowH || 32;
-    const firstTop = gels[0].getBoundingClientRect().top;
-    const lastBottom = gels[gels.length - 1].getBoundingClientRect().bottom;
-    if (y <= firstTop) return { cid: arr[0].id, index: 0 };                                    // oben am colhead begrenzt
-    if (y >= lastBottom) return { cid: arr[arr.length - 1].id, index: rowsOfClass(gels[gels.length - 1]).length }; // unten am grow begrenzt
-    for (let ci = 0; ci < arr.length; ci++) {
-      const g = gels[ci], r = g.getBoundingClientRect();
-      const nextTop = ci < arr.length - 1 ? gels[ci + 1].getBoundingClientRect().top : lastBottom;
-      if (y >= r.top && y < nextTop) {
-        const ghead = g.querySelector(".ghead");
-        const startY = ghead ? ghead.getBoundingClientRect().bottom : r.top;
-        const n = rowsOfClass(g).length;
-        // stabile Index-Formel: Offset ÷ Zeilenhöhe, 50%-Schwelle, kein Feedback-Loop
-        let index = Math.floor((y - startY) / rowH + 0.5);
-        index = Math.max(0, Math.min(n, index));
-        return { cid: arr[ci].id, index };
-      }
-    }
-    return { cid: arr[0].id, index: 0 };
-  }
-  function placePhPos(cid, index) {
+  function placeP(cid, index) {
     const g = q(`.gclass[data-cid="${cid}"]`); if (!g) return;
     const rows = [...g.querySelectorAll(".prow:not(.ghost)")].filter((x) => !x.classList.contains("dragsrc") && !x.classList.contains("ph"));
     if (index >= rows.length) { const ghost = g.querySelector(".ghost"); if (ghost) ghost.before(posDrag.ph); else g.appendChild(posDrag.ph); }
     else rows[index].before(posDrag.ph);
   }
+  function mapIns(ins, cloneCenter) {
+    const arr = posDrag.kind === "asset" ? data.besitz : data.schulden; let cum = 0;
+    for (let ci = 0; ci < arr.length; ci++) {
+      const c = arr[ci], cnt = c.positions.reduce((a, p) => a + (p.id == posDrag.pid ? 0 : 1), 0);
+      if (ins < cum + cnt) return { cid: c.id, index: ins - cum };
+      if (ins === cum + cnt) {                                  // Grenze: Ende dieser Klasse ODER Anfang der nächsten
+        const next = arr[ci + 1];
+        if (!next) return { cid: c.id, index: cnt };
+        const g = q(`.gclass[data-cid="${c.id}"]`), ng = q(`.gclass[data-cid="${next.id}"]`);
+        const midGap = ((g ? g.getBoundingClientRect().bottom : 0) + (ng ? ng.getBoundingClientRect().top : 0)) / 2;
+        return (cloneCenter < midGap) ? { cid: c.id, index: cnt } : { cid: next.id, index: 0 };
+      }
+      cum += cnt;
+    }
+    const last = arr[arr.length - 1]; return { cid: last.id, index: last.positions.reduce((a, p) => a + (p.id == posDrag.pid ? 0 : 1), 0) };
+  }
   function updateP() {
     const D = posDrag; if (!D) return;
-    D.clone.style.top = clampCloneTop(D.kind, D.lastY + D.offY, D.rowH) + "px";
-    const t = hitTestPos(D.lastY);
-    if (t) { D.valid = true; D.dst = { cid: t.cid, index: t.index }; placePhPos(t.cid, t.index); }
+    const dScroll = D.sc ? (D.sc.scrollTop - D.startScroll) : 0;
+    let top = D.lastY + D.cloneOffY;
+    const lt = D.listTop0 - dScroll, lb = D.listBottom0 - dScroll;
+    top = Math.max(lt, Math.min(Math.max(lt, lb - D.rowH), top));     // Klon hart in den Block geclamped (Lücke = Grenze)
+    D.clone.style.top = top + "px";
+    const cloneTop = top, cloneBottom = top + D.rowH;
+    let below = 0, above = 0;
+    D.orderedRows.forEach((o) => {
+      if (o.pid == D.pid) return; const mcn = o.mc0 - dScroll;
+      if (o.mc0 > D.draggedMc0) { if (cloneBottom > mcn) below++; }   // untere Kante überschreitet 50% der Zeile darunter
+      else { if (cloneTop < mcn) above++; }                          // obere Kante überschreitet 50% der Zeile darüber
+    });
+    const N = D.orderedRows.length - 1;
+    const ins = Math.max(0, Math.min(N, D.fromGlobalIdx + below - above));
+    const t = mapIns(ins, cloneTop + D.rowH / 2);
+    if (t.cid !== D.dstCid || t.index !== D.dstIndex) { D.dstCid = t.cid; D.dstIndex = t.index; flipP(D.kind, () => placeP(t.cid, t.index)); }
   }
   function autoScrollP() {
     const D = posDrag; if (!D || D.raf || !canvas) return;
     const EDGE = 56;
     const step = () => {
       if (!posDrag) return; const rr = canvas.getBoundingClientRect(), yy = posDrag.lastY; let dd = 0;
-      if (yy < rr.top + EDGE) dd = -(EDGE - (yy - rr.top)); else if (yy > rr.bottom - EDGE) dd = (EDGE - (rr.bottom - yy));
+      if (yy < rr.top + EDGE) dd = -1; else if (yy > rr.bottom - EDGE) dd = 1;
       if (dd === 0) { posDrag.raf = 0; return; }
-      const before = canvas.scrollTop; canvas.scrollTop = Math.max(0, before + dd * 0.3);
+      const di = dd < 0 ? (rr.top + EDGE - yy) : (yy - (rr.bottom - EDGE)); const sp = Math.min(20, 4 + di / 2.4);
+      const before = canvas.scrollTop; canvas.scrollTop = Math.max(0, before + dd * sp);
       if (canvas.scrollTop !== before) { updateP(); posDrag.raf = requestAnimationFrame(step); } else posDrag.raf = 0;
     };
     posDrag.raf = requestAnimationFrame(step);
   }
   function onPKey(e) { if (e.key === "Escape" && posDrag) { e.preventDefault(); cancelP(); } }
   function detachP() { window.removeEventListener("pointermove", onPMove); window.removeEventListener("pointerup", onPUp); window.removeEventListener("pointercancel", cancelP); window.removeEventListener("keydown", onPKey, true); }
-  function cleanupP() { const D = posDrag; if (!D) return; if (D.raf) cancelAnimationFrame(D.raf); try { D.clone.remove(); } catch (_) {} try { D.ph.remove(); } catch (_) {} if (D.rowEl) D.rowEl.classList.remove("dragsrc"); wrap.classList.remove("dragging"); root.querySelectorAll(".ledger.vm-locked").forEach((x) => x.classList.remove("vm-locked")); posDrag = null; }
+  function cleanupP() {
+    const D = posDrag; if (!D) return; if (D.raf) cancelAnimationFrame(D.raf);
+    try { D.clone.remove(); } catch (_) {} try { D.ph.remove(); } catch (_) {}
+    if (D.rowEl) D.rowEl.classList.remove("dragsrc");
+    const led = q(D.kind === "asset" ? "#vmBesitz" : "#vmSchulden"); if (led) led.querySelectorAll(".prow, .ghead, .srow, .grow").forEach((n) => { n.style.transition = ""; n.style.transform = ""; });
+    wrap.classList.remove("dragging"); root.querySelectorAll(".ledger.vm-locked").forEach((x) => x.classList.remove("vm-locked"));
+    posDrag = null;
+  }
   function cancelP() { detachP(); cleanupP(); render(); }
   async function onPUp() {
     const D = posDrag; if (!D) return; detachP();
-    if (!D.valid || !D.dst || D.dst.index == null) { cleanupP(); render(); return; }
-    const src = findClass(D.cid); const p = src.positions.find((x) => x.id == D.pid); const dst = findClass(D.dst.cid);
+    const cid = D.dstCid, index = D.dstIndex >= 0 ? D.dstIndex : 0;
+    const src = findClass(D.cid); const p = src && src.positions.find((x) => x.id == D.pid); const dst = findClass(cid);
     if (!p || !dst) { cleanupP(); render(); return; }
-    const sameClass = D.dst.cid == D.cid;
-    const curIdx = src.positions.indexOf(p);
-    // No-Op-Schutz: gleiche Klasse, gleiche Stelle
-    if (sameClass && (D.dst.index === curIdx || D.dst.index === curIdx)) { /* trotzdem reordern ist harmlos */ }
-    src.positions.splice(curIdx, 1);
-    dst.positions.splice(D.dst.index, 0, p);
+    const sameClass = cid == D.cid;
+    src.positions.splice(src.positions.indexOf(p), 1);
+    dst.positions.splice(Math.max(0, Math.min(dst.positions.length, index)), 0, p);
     cleanupP(); render();
     try {
       await flushAll();
