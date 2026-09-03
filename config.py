@@ -3,8 +3,8 @@ import os
 from pathlib import Path
 
 APP_NAME = "Finanzkontor"
-APP_VERSION = "0.5.0"
-STAGE = "Stufe 3 – Vermögen"
+APP_VERSION = "0.7.2"
+STAGE = "Stufe 4 – Verträge & Abos"
 
 # Verzeichnis für ALLE privaten Daten (DB-Dateien + Keyfile).
 # Umzug = einfach diesen Ordner mitnehmen.
@@ -12,6 +12,9 @@ DATA_DIR = Path(os.environ.get("DATA_DIR", "./data")).resolve()
 
 # Keyfile für die Verschlüsselung der Werte (liegt bewusst neben den DBs).
 KEY_FILE = DATA_DIR / "secret.key"
+
+# Verschlüsselte Vertrags-Dokumente (PDFs u. a.) – innerhalb DATA_DIR, gitignored.
+DOCS_DIR = DATA_DIR / "docs"
 
 # Datei für App-Zustand (Passwort-Hash, Session-Secret, aktive DB).
 STATE_FILE = DATA_DIR / "app_state.json"

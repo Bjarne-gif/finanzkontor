@@ -1,0 +1,181 @@
+/* ============ Verträge-Panel (Stufe 4) – gekapselt unter .cxwrap ============ */
+.cxwrap{ --cx-side:420px; --cx-warn:#d9a441;
+  width:100%; max-width:1820px; margin:0 auto; display:flex; gap:24px; align-items:flex-start; padding:26px 22px 60px; }
+.cxwrap .num{ font-family:var(--font-num); font-variant-numeric:tabular-nums; }
+.cxwrap .cx-left{ flex:none; width:var(--cx-side); }
+.cxwrap .cx-mid{ flex:1 1 auto; min-width:700px; }
+.cxwrap .cx-right{ flex:none; width:var(--cx-side); }
+@media (max-width:1400px){
+  .cxwrap{ flex-wrap:wrap; width:auto; }
+  .cxwrap .cx-mid{ order:-1; width:100%; flex:none; min-width:0; }
+  .cxwrap .cx-left, .cxwrap .cx-right{ width:calc(50% - 12px); }
+}
+.cxwrap .areatitle{ font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--text-faint); font-weight:700; padding:0 4px 10px; }
+
+/* ---------- Kennzahlen (links) ---------- */
+.cxwrap .kgrid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.cxwrap .tile{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:16px 15px; min-height:78px; cursor:pointer; transition:.15s; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:3px; }
+.cxwrap .tile:hover{ border-color:var(--accent-line); }
+/* Markierung ohne Layout-Verschiebung: inset box-shadow statt border */
+.cxwrap .tile.marked{ border-color:var(--accent-line); background:color-mix(in srgb,var(--accent) 8%,var(--surface)); box-shadow:inset 3px 0 0 var(--accent), inset -3px 0 0 var(--accent); }
+.cxwrap .tile.wide{ grid-column:1 / 3; }
+.cxwrap .tile .tlbl{ font-size:10.5px; letter-spacing:.05em; text-transform:uppercase; color:var(--text-faint); }
+.cxwrap .tile.marked .tlbl{ color:var(--accent); }
+/* Zahl exakt zentriert, Einheit haengt an ohne die Zahl zu verschieben (fuer alle Kacheln mit Einheit) */
+.cxwrap .tile .tbig{ font-family:var(--font-num); font-size:24px; font-weight:600; position:relative; display:inline-block; }
+.cxwrap .tile .tbig .u, .cxwrap .tile .tbig .cur{ position:absolute; left:calc(100% + 5px); bottom:3px; font-size:12px; color:var(--text-faint); margin:0; white-space:nowrap; }
+.cxwrap .tile.hero .tbig{ font-size:33px; } .cxwrap .tile.hero .tbig .u{ bottom:5px; }
+.cxwrap .tile .tsub{ font-size:11.5px; color:var(--text-dim); }
+.cxwrap .tile.alert{ border-color:color-mix(in srgb,var(--cx-warn) 45%,var(--border)); }
+.cxwrap .tile.alert .tbig{ color:var(--cx-warn); }
+.cxwrap .tile.ok .tbig{ color:var(--positive); }
+.cxwrap .tile.listtile{ align-items:stretch; text-align:left; padding:13px 9px 9px; }
+.cxwrap .tile.listtile .tlbl{ text-align:center; margin-bottom:6px; }
+.cxwrap .nr{ display:flex; align-items:center; gap:9px; padding:7px 10px; border-radius:var(--radius-sm); cursor:pointer; }
+.cxwrap .nr:hover{ background:var(--surface-2); }
+.cxwrap .nr .nd{ font-family:var(--font-num); font-size:11px; width:52px; flex:none; }
+.cxwrap .nr .nn{ flex:1; font-size:12.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.cxwrap .nr .nc{ font-size:10px; font-weight:600; }
+
+/* grauer Platzhalter (Kennzahlen leer) – gleiche Anmutung wie die anderen Empty-Kaesten */
+.cxwrap .cx-ph{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); min-height:360px; display:flex; align-items:center; justify-content:center; text-align:center; color:var(--text-dim); font-size:13.5px; line-height:1.5; padding:26px; }
+
+/* ---------- Tabelle (Mitte) ---------- */
+.cxwrap .ledger{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); overflow:hidden; }
+.cxwrap .ledger.cx-empty{ min-height:360px; display:flex; align-items:center; justify-content:center; text-align:center; }
+.cxwrap .ledger .emptytxt{ color:var(--text-dim); font-size:14px; padding:26px; line-height:1.6; }
+.cxwrap .colhead, .cxwrap .prow, .cxwrap .srow, .cxwrap .totalrow, .cxwrap .catadd{ display:grid; grid-template-columns:18px minmax(180px,1fr) 138px var(--cx-wertw,92px) var(--cx-wertw,92px) 28px; align-items:center; gap:10px; }
+.cxwrap .colhead{ padding:12px 16px; background:var(--surface-2); }
+.cxwrap .colhead .h{ font-size:10px; letter-spacing:.06em; text-transform:uppercase; color:var(--text-faint); }
+.cxwrap .colhead .h.r{ text-align:right; }
+/* Luecke nach Kopf + zwischen Kategorien */
+.cxwrap .gclass{ margin-top:9px; }
+.cxwrap .ghead{ display:grid; grid-template-columns:18px 1fr auto; align-items:center; gap:9px; padding:10px 16px; background:var(--surface-2); border-top:1px solid var(--border); border-bottom:1px solid var(--border-soft); }
+.cxwrap .ghead .grip{ grid-column:1; justify-self:center; display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; color:var(--text-faint); cursor:grab; font-size:11px; opacity:.35; touch-action:none; user-select:none; }
+.cxwrap .ch-id{ grid-column:2; display:flex; align-items:center; gap:8px; min-width:0; }
+.cxwrap .ch-id .cdot{ width:9px; height:9px; border-radius:50%; flex:0 0 auto; }
+.cxwrap .ch-id .cname{ flex:1; min-width:0; font-family:var(--font-display); font-weight:600; font-size:13px; letter-spacing:.08em; text-transform:uppercase; background:transparent; border:1px solid transparent; border-radius:var(--radius-sm); padding:3px 6px; color:var(--text); }
+.cxwrap .ch-id .cname:hover{ background:color-mix(in srgb,var(--text) 5%,transparent); }
+.cxwrap .ch-id .cname:focus{ outline:0; background:var(--surface); border-color:var(--accent-line); }
+.cxwrap .ch-act{ grid-column:3; display:flex; align-items:center; gap:2px; }
+.cxwrap .ch-act button{ color:var(--text-faint); background:transparent; border:0; cursor:pointer; font-size:16px; line-height:1; padding:2px 7px; border-radius:var(--radius-sm); }
+.cxwrap .ch-act button:hover{ color:var(--text); background:var(--surface-3); }
+.cxwrap .ch-act .del:hover{ color:var(--negative); }
+
+.cxwrap .prow{ padding:9px 16px; cursor:pointer; }
+.cxwrap .prow + .prow{ border-top:1px solid var(--border-soft); }
+.cxwrap .prow:hover{ background:var(--surface-2); }
+.cxwrap .prow.sel{ background:var(--accent-soft); box-shadow:inset 3px 0 0 var(--accent); }
+.cxwrap .prow.inactive .vname, .cxwrap .prow.inactive .cnum, .cxwrap .prow.inactive .vkuend{ opacity:.5; }
+.cxwrap .prow.inactive .nm, .cxwrap .prow.inactive .sub, .cxwrap .prow.inactive .cnum{ text-decoration:line-through; }
+.cxwrap .prow .grip{ grid-column:1; justify-self:center; display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; color:var(--text-faint); cursor:grab; font-size:11px; opacity:.35; touch-action:none; user-select:none; }
+.cxwrap .prow:hover .grip{ opacity:.8; }
+.cxwrap .vname{ grid-column:2; display:flex; flex-direction:column; gap:2px; min-width:0; }
+.cxwrap .vname .nm{ font-weight:500; white-space:normal; overflow-wrap:anywhere; }
+.cxwrap .vname .nm .pn{ color:var(--text-faint); font-weight:400; }
+.cxwrap .vname .sub{ font-size:11.5px; color:var(--text-faint); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+/* Reihenfolge: Kuendigen bis (Sp.3) | mtl (Sp.4) | jaehrl (Sp.5) */
+.cxwrap .vkuend{ grid-column:3; display:flex; flex-direction:column; align-items:flex-end; gap:3px; }
+.cxwrap .vkuend .kd{ font-family:var(--font-num); font-size:12.5px; }
+.cxwrap .cnum{ font-family:var(--font-num); text-align:right; font-size:13px; }
+.cxwrap .cnum.m{ grid-column:4; } .cxwrap .cnum.y{ grid-column:5; }
+.cxwrap .cnum.prim{ color:var(--text); } .cxwrap .cnum.sec{ color:var(--text-faint); font-size:12px; }
+.cxwrap .cnum .cur{ color:var(--text-faint); font-size:inherit; margin-left:2px; }
+.cxwrap .rmenu-btn{ grid-column:6; justify-self:center; color:var(--text-faint); background:transparent; border:0; cursor:pointer; font-size:15px; line-height:1; padding:2px 4px; border-radius:var(--radius-sm); }
+.cxwrap .rmenu-btn:hover, .cxwrap .rmenu-btn.active{ color:var(--text); background:var(--surface-3); }
+.cxwrap .chip{ font-size:10px; padding:2px 7px; border-radius:20px; font-weight:600; white-space:nowrap; }
+.cxwrap .chip.due{ background:color-mix(in srgb,var(--negative) 20%,transparent); color:var(--negative); }
+.cxwrap .chip.soon{ background:color-mix(in srgb,var(--accent) 22%,transparent); color:var(--accent); }
+.cxwrap .chip.calm{ background:var(--surface-3); color:var(--text-dim); }
+.cxwrap .chip.free{ background:var(--surface-3); color:var(--text-faint); }
+.cxwrap .chip.missed{ background:color-mix(in srgb,var(--cx-warn) 22%,transparent); color:var(--cx-warn); }
+.cxwrap .chip.status{ background:var(--surface-3); color:var(--text-faint); }
+.cxwrap .chip.cancel{ background:color-mix(in srgb,var(--negative) 16%,transparent); color:var(--negative); }
+/* "+ Vertrag" in jeder Kategorie: mittig, ueber der Summenzeile */
+.cxwrap .catadd{ padding:9px 16px; border-top:1px solid var(--border-soft); cursor:pointer; transition:.15s; }
+.cxwrap .catadd:hover{ background:var(--surface-2); }
+.cxwrap .catadd .lab{ grid-column:1 / -1; text-align:center; color:var(--text-faint); font-size:12.5px; }
+.cxwrap .catadd:hover .lab{ color:var(--accent); }
+/* Summe: gleicher Hintergrund wie die Spaltennamen-Zeile */
+.cxwrap .srow{ padding:8px 16px; border-top:1px solid var(--border); background:var(--surface-2); }
+.cxwrap .srow .sl{ grid-column:2; font-size:11.5px; color:var(--text-dim); }
+.cxwrap .srow .cnum{ font-size:12px; color:var(--text-dim); }
+.cxwrap .totalrow{ margin-top:9px; padding:12px 16px; border-top:2px solid var(--border); background:var(--surface-2); }
+.cxwrap .totalrow .sl{ grid-column:2; font-family:var(--font-display); font-weight:600; font-size:12.5px; letter-spacing:.04em; text-transform:uppercase; }
+.cxwrap .totalrow .cnum{ font-family:var(--font-num); text-align:right; font-size:13.5px; color:var(--text); font-weight:600; }
+.cxwrap .totalrow .cnum .cur{ font-size:11px; color:var(--text-faint); margin-left:2px; }
+.cxwrap .addbottom{ margin:10px 0 2px; font-size:12.5px; color:var(--text-dim); background:transparent; border:0; padding:8px 4px; cursor:pointer; }
+.cxwrap .addbottom:hover{ color:var(--accent); }
+
+/* ---------- Details & Dokumente (rechts) ---------- */
+.cxwrap .detail{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); overflow:hidden; position:sticky; top:14px; }
+.cxwrap .detail.cx-ph{ min-height:360px; display:flex; align-items:center; justify-content:center; }
+.cxwrap .detail .empty{ text-align:center; color:var(--text-dim); font-size:13.5px; line-height:1.6; padding:26px; }
+.cxwrap .dhead{ padding:14px 16px; background:var(--surface-2); border-bottom:1px solid var(--border); }
+.cxwrap .dvendor{ font-family:var(--font-display); font-weight:600; font-size:15px; }
+.cxwrap .dposten{ font-size:11.5px; color:var(--text-faint); margin-top:1px; }
+.cxwrap .dkuend{ display:flex; align-items:center; gap:8px; margin-top:9px; font-size:12px; color:var(--text-dim); }
+.cxwrap .dbody{ padding:14px 16px 16px; }
+.cxwrap .fld{ margin-bottom:11px; } .cxwrap .fld label{ display:block; font-size:10px; letter-spacing:.05em; text-transform:uppercase; color:var(--text-faint); margin-bottom:5px; }
+.cxwrap .fld input, .cxwrap .fld select{ width:100%; font:inherit; font-size:13px; background:var(--surface-2); color:var(--text); border:1px solid var(--border); border-radius:var(--radius-sm); padding:7px 9px; }
+.cxwrap .fld input.mono{ font-family:var(--font-num); }
+.cxwrap .fld input:focus, .cxwrap .fld select:focus{ outline:0; border-color:var(--accent-line); }
+.cxwrap .frow{ display:flex; gap:10px; } .cxwrap .frow .fld{ flex:1; }
+.cxwrap .unitrow{ display:flex; gap:7px; } .cxwrap .unitrow input{ width:60px; flex:none; font-family:var(--font-num); } .cxwrap .unitrow select{ flex:1; }
+.cxwrap .savehint{ font-size:11px; color:var(--text-faint); text-align:center; margin-top:2px; }
+.cxwrap .docsec{ margin-top:16px; border-top:1px solid var(--border-soft); padding-top:14px; }
+.cxwrap .docsec .dt{ font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--text-faint); margin-bottom:9px; display:flex; justify-content:space-between; }
+.cxwrap .drop{ border:1.5px dashed var(--border); border-radius:var(--radius); padding:13px; text-align:center; font-size:12px; color:var(--text-faint); cursor:pointer; transition:.15s; }
+.cxwrap .drop:hover{ border-color:var(--accent-line); color:var(--text-dim); background:var(--accent-soft); }
+.cxwrap .drop.busy{ opacity:.6; pointer-events:none; }
+.cxwrap .doc{ display:flex; align-items:center; gap:10px; padding:9px 10px; background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); margin-bottom:8px; cursor:pointer; transition:.15s; }
+.cxwrap .doc:hover{ border-color:var(--accent-line); }
+.cxwrap .doc .fi{ width:26px; height:32px; flex:none; border-radius:3px; background:color-mix(in srgb,var(--negative) 18%,var(--surface-3)); display:grid; place-items:center; font-size:8px; font-weight:700; color:var(--negative); border:1px solid var(--border); }
+.cxwrap .doc .fmeta{ flex:1; min-width:0; } .cxwrap .doc .fmeta .fn{ font-size:12.5px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; } .cxwrap .doc .fmeta .fs{ font-size:10.5px; color:var(--text-faint); }
+.cxwrap .doc .fx{ color:var(--text-faint); font-size:14px; padding:2px 4px; border-radius:4px; } .cxwrap .doc .fx:hover{ color:var(--negative); background:var(--surface-3); }
+
+/* ---------- Zeilen-Menü / Modal / PDF-Viewer (Body-Ebene) ---------- */
+.cx-rmenu{ position:fixed; z-index:70; min-width:200px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); padding:6px; display:none; }
+.cx-rmenu.show{ display:block; }
+.cx-rmenu button{ display:flex; width:100%; text-align:left; font:inherit; font-size:13.5px; color:var(--text); background:none; border:0; padding:8px 10px; border-radius:var(--radius-sm); cursor:pointer; }
+.cx-rmenu button:hover{ background:var(--surface-2); }
+.cx-rmenu button.danger{ color:var(--negative); } .cx-rmenu button.danger:hover{ background:var(--surface-3); }
+.cx-rmenu .sep{ height:1px; background:var(--border-soft); margin:4px 3px; }
+
+.cx-overlay{ position:fixed; inset:0; z-index:80; background:#00000066; display:none; align-items:center; justify-content:center; padding:20px; }
+.cx-overlay.show{ display:flex; }
+.cx-modal{ width:min(94vw,410px); max-height:88vh; overflow:auto; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow); padding:20px 22px 22px; }
+.cx-modal h3{ font-family:var(--font-display); font-size:16px; margin:0 0 3px; } .cx-modal .msub{ color:var(--text-faint); font-size:12.5px; margin-bottom:16px; line-height:1.5; }
+.cx-modal .newfields{ border-top:1px dashed var(--border); margin-top:6px; padding-top:12px; }
+.cx-modal .mbtns{ display:flex; gap:9px; margin-top:12px; } .cx-modal .mbtns button{ font:inherit; font-size:13px; padding:9px 14px; border-radius:var(--radius-sm); cursor:pointer; border:1px solid var(--border); background:var(--surface-2); color:var(--text); }
+.cx-modal .mbtns .save{ background:var(--accent); color:#10151b; border-color:transparent; font-weight:600; margin-left:auto; }
+.cx-modal .fld{ margin-bottom:11px; } .cx-modal .fld label{ display:block; font-size:10px; letter-spacing:.05em; text-transform:uppercase; color:var(--text-faint); margin-bottom:5px; }
+.cx-modal .fld input, .cx-modal .fld select{ width:100%; font:inherit; font-size:13px; background:var(--surface-2); color:var(--text); border:1px solid var(--border); border-radius:var(--radius-sm); padding:7px 9px; }
+.cx-modal .fld input.mono{ font-family:var(--font-num); }
+.cx-modal .frow{ display:flex; gap:10px; } .cx-modal .frow .fld{ flex:1; }
+.cx-modal .unitrow{ display:flex; gap:7px; } .cx-modal .unitrow input{ width:60px; flex:none; font-family:var(--font-num); } .cx-modal .unitrow select{ flex:1; }
+
+.cx-pdfscrim{ position:fixed; inset:0; z-index:90; background:rgba(0,0,0,.72); display:none; place-items:center; padding:26px; }
+.cx-pdfscrim.show{ display:grid; }
+.cx-pdfbox{ width:1240px; max-width:96vw; height:90vh; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow); display:flex; flex-direction:column; overflow:hidden; }
+.cx-pdfhead{ display:flex; align-items:center; gap:12px; padding:11px 16px; border-bottom:1px solid var(--border); background:var(--surface-2); flex:none; }
+.cx-pdfhead .pt{ font-family:var(--font-display); font-weight:600; font-size:14px; flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.cx-pdfhead a{ font-size:12px; color:var(--accent); text-decoration:none; } .cx-pdfhead .px{ cursor:pointer; color:var(--text-faint); font-size:18px; } .cx-pdfhead .px:hover{ color:var(--text); }
+/* PDF fuellt den Hauptbereich, Konfig ist rechts fix ANGEHAENGT (beeinflusst die PDF-Breite nicht mehr als noetig) */
+.cx-pdfcontent{ flex:1; display:flex; min-height:0; }
+.cx-pdfmain{ flex:1 1 auto; background:#2a2a2e; min-width:0; } .cx-pdfmain iframe{ display:block; width:100%; height:100%; border:0; }
+.cx-pdfph{ width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; color:var(--text-faint); text-align:center; padding:30px; }
+.cx-pdfph .big{ width:64px; height:80px; border-radius:6px; background:color-mix(in srgb,var(--negative) 16%,var(--surface-3)); display:grid; place-items:center; font-weight:700; color:var(--negative); border:1px solid var(--border); }
+.cx-pdfside{ width:300px; flex:0 0 300px; border-left:1px solid var(--border); overflow:auto; padding:15px 16px; background:var(--surface); }
+.cx-pdfside .sh{ font-family:var(--font-display); font-weight:600; font-size:14px; } .cx-pdfside .ss{ font-size:11.5px; color:var(--text-faint); margin-bottom:14px; }
+.cx-pdfside .fld{ margin-bottom:11px; } .cx-pdfside .fld label{ display:block; font-size:10px; letter-spacing:.05em; text-transform:uppercase; color:var(--text-faint); margin-bottom:5px; }
+.cx-pdfside .fld input, .cx-pdfside .fld select{ width:100%; font:inherit; font-size:13px; background:var(--surface-2); color:var(--text); border:1px solid var(--border); border-radius:var(--radius-sm); padding:7px 9px; }
+.cx-pdfside .fld input.mono{ font-family:var(--font-num); }
+.cx-pdfside .frow{ display:flex; gap:10px; } .cx-pdfside .frow .fld{ flex:1; }
+.cx-pdfside .unitrow{ display:flex; gap:7px; } .cx-pdfside .unitrow input{ width:60px; flex:none; font-family:var(--font-num); } .cx-pdfside .unitrow select{ flex:1; }
+.cx-pdfside .savehint{ font-size:11px; color:var(--text-faint); text-align:center; }
+@media (max-width:900px){ .cx-pdfcontent{ flex-direction:column; } .cx-pdfside{ width:100%; flex:none; border-left:0; border-top:1px solid var(--border); max-height:44%; } }
+
+/* Neuanlage-Dialog: Haushaltsbereich klar abheben von der Vertragssicht */
+.cx-modal .hbox{ border:1px solid var(--accent-line); border-radius:var(--radius); padding:12px 12px 4px; margin:6px 0 12px; background:color-mix(in srgb, var(--accent) 6%, var(--surface-2)); }
+.cx-modal .hbox-title{ font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--accent); font-weight:700; margin-bottom:9px; }

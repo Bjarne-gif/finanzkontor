@@ -24,6 +24,7 @@ function parse(raw) {
   }
   const v = parseFloat(s);
   if (isNaN(v) || v < 0) throw new Error("Betrag ungültig.");
+  if (v > 999999999999.99) throw new Error("Betrag zu groß (max. 999.999.999.999,99).");
   return r2(v);
 }
 function parseSafe(raw) { try { return parse(raw); } catch (_) { return null; } }
@@ -34,6 +35,12 @@ function mount(root, ctx) {
   const dbName = (store.get("state") && store.get("state").active_db) || "db";
   const UIKEY = "fk_assets_ui_" + dbName;
   const canvas = root.closest(".canvas");
+
+  /* Fokusverhalten Wert-Felder: Tab -> markieren, Maus -> Cursor an Klickstelle
+     (€ wird schon im mousedown entfernt, damit der Cursor nicht springt). */
+  let mouseFocus = false;
+  const onFocusModeKey = (e) => { if (e.key === "Tab") mouseFocus = false; };
+  document.addEventListener("keydown", onFocusModeKey, true);
 
   let data = { besitz: [], schulden: [] };
   let monthlyExpenses = 0;
@@ -324,11 +331,24 @@ function mount(root, ctx) {
     if (e.key !== "Enter") return; const g = e.target.closest(".gclass"); if (!g) return;
     e.preventDefault(); const gh = g.querySelector('.ghost [data-g="name"]'); if (gh) gh.focus();
   });
+  root.addEventListener("mousedown", (e) => {
+    const t = e.target; if (t && t.classList && t.classList.contains("cellinput")) mouseFocus = true;  // € bleibt bei Maus
+  }, true);
+  root.addEventListener("focus", (e) => {
+    const t = e.target; if (!t || !t.classList || !t.classList.contains("cellinput")) return;
+    if (mouseFocus) { mouseFocus = false; return; }                                   // Maus: an Klickstelle, € bleibt
+    const isVal = (t.dataset.f === "value" || t.dataset.g === "value");
+    if (isVal) { t.value = t.value.replace(/\s*€\s*$/, "").trim(); try { t.select(); } catch (_) {} }  // Tab-Wert: € weg + markiert
+    else { const n = t.value.length; try { t.setSelectionRange(n, n); } catch (_) {} }                 // Tab-Text: Cursor ans Ende
+  }, true);
   root.addEventListener("blur", (e) => {
     const t = e.target; if (!(t.dataset && t.dataset.f === "value")) return;
     const prow = t.closest(".prow"), g = t.closest(".gclass"); if (!prow || !g) return;
     const c = findClass(g.dataset.cid); if (!c) return; const p = c.positions.find((x) => x.id == prow.dataset.pid);
-    if (p) t.value = fmtEUR(p.value);
+    if (!p) return;
+    let v; try { v = parse(t.value); } catch (err) { toast(err.message, true); t.value = fmtEUR(p.value); return; }
+    if (Math.abs(v - p.value) >= 0.005) { p.value = v; recompute(); queuePos(prow.dataset.pid, { value: v }); }
+    t.value = fmtEUR(p.value);
   }, true);
 
   root.addEventListener("click", (e) => {
@@ -691,6 +711,7 @@ function mount(root, ctx) {
       if (posDrag) { detachP(); cleanupP(); }
       if (catDrag) { detachC(); cleanupC(); }
       document.removeEventListener("click", onDocClick);
+      document.removeEventListener("keydown", onFocusModeKey, true);
       window.removeEventListener("resize", onWinChange);
       window.removeEventListener("scroll", onWinChange, true);
       pop.remove(); rmenu.remove(); overlay.remove();

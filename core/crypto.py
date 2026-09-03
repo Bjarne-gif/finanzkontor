@@ -48,3 +48,12 @@ def decrypt(token: str) -> str:
     if not token:
         return ""
     return _f().decrypt(token.encode("ascii")).decode("utf-8")
+
+
+def encrypt_bytes(data: bytes) -> bytes:
+    """Ganze Dateien mit demselben Key verschlüsseln (für Vertrags-Dokumente)."""
+    return _f().encrypt(data or b"")
+
+
+def decrypt_bytes(token: bytes) -> bytes:
+    return _f().decrypt(token)

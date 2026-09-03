@@ -54,4 +54,30 @@ export const api = {
   updateAssetPosition:   (id, patch) => req("PATCH", `/api/assets/position/${id}`, patch),
   deleteAssetPosition:   (id)        => req("DELETE", `/api/assets/position/${id}`),
   reorderAssetPositions: (ids)       => req("POST", "/api/assets/position/reorder", { ids }),
+
+  // Verträge & Abos (Stufe 4)
+  contractsState:   ()          => req("GET",  "/api/contracts/state"),
+  contractsLinkable:()          => req("GET",  "/api/contracts/linkable"),
+  addContract:      (data)      => req("POST", "/api/contracts/contract", data),
+  updateContract:   (id, patch) => req("PATCH", `/api/contracts/contract/${id}`, patch),
+  deleteContract:   (id)        => req("DELETE", `/api/contracts/contract/${id}`),
+  reorderContracts: (ids)       => req("POST", "/api/contracts/contract/reorder", { ids }),
+  contractCategories:   ()          => req("GET",  "/api/contracts/state"),
+  addContractCategory:  (data)      => req("POST", "/api/contracts/category", data),
+  updateContractCategory:(id,patch) => req("PATCH", `/api/contracts/category/${id}`, patch),
+  deleteContractCategory:(id)       => req("DELETE", `/api/contracts/category/${id}`),
+  reorderContractCategories:(ids)   => req("POST", "/api/contracts/category/reorder", { ids }),
+  deleteContractDoc:(docId)         => req("DELETE", `/api/contracts/doc/${docId}`),
+  contractDocUrl:   (docId)         => `/api/contracts/doc/${docId}`,
+  // Upload braucht FormData statt JSON:
+  uploadContractDoc: async (cid, file) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    const r = await fetch(`/api/contracts/contract/${cid}/doc`, {
+      method: "POST", body: fd, credentials: "same-origin",
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || "Upload fehlgeschlagen");
+    return data;
+  },
 };

@@ -25,6 +25,7 @@ function parse(raw) {
   }
   const v = parseFloat(s);
   if (isNaN(v) || v < 0) throw new Error("Betrag ungültig.");
+  if (v > 999999999999.99) throw new Error("Betrag zu groß (max. 999.999.999.999,99).");
   return r2(v);
 }
 
@@ -49,6 +50,25 @@ function mount(root, ctx) {
     catch (_) { return { drafts: {}, scroll: 0 }; }
   }
   const saveUi = debounce(() => { try { localStorage.setItem(UIKEY, JSON.stringify(ui)); } catch (_) {} }, 250);
+
+  /* Fokusverhalten für Euro-/Wert-Felder:
+     - per Tab hinein  -> Inhalt wird markiert (direktes Überschreiben)
+     - per Maus-Klick   -> Cursor bleibt an der Klickstelle (das €-Zeichen wird schon
+                           im mousedown entfernt, damit der Cursor nicht springt).
+     Textfelder (Name/Kommentar) bleiben unverändert: Tab -> ans Ende (ledgerTab),
+     Maus -> Klickstelle (Browser). */
+  let mouseFocus = false;
+  const onFocusModeKey = (e) => { if (e.key === "Tab") mouseFocus = false; };
+  document.addEventListener("keydown", onFocusModeKey, true);
+  const stripCur = (v) => v.replace(/\s*€\s*$/, "");
+  function wireAmt(inp, hasEuro) {
+    inp.addEventListener("mousedown", () => { mouseFocus = true; });   // € bleibt -> Cursor springt nicht
+    inp.addEventListener("focus", () => {
+      if (mouseFocus) { mouseFocus = false; return; }        // Maus: € bleibt, Cursor an Klickstelle
+      if (hasEuro) inp.value = stripCur(inp.value).trim();    // Tab: € weg ...
+      try { inp.select(); } catch (_) {}                      // ... und markieren
+    });
+  }
 
   root.innerHTML = `<div class="ledger2"><div class="lg-load">Lade …</div></div>`;
   const canvas = root.closest(".canvas");
@@ -549,7 +569,7 @@ function mount(root, ctx) {
       const id = +(kind === "m" ? inp.dataset.m : inp.dataset.y);
       const row = inp.closest(".rp");
       const other = kind === "m" ? row.querySelector(".rval[data-y]") : row.querySelector(".rval[data-m]");
-      inp.addEventListener("focus", () => inp.select());
+      wireAmt(inp, true);
       inp.addEventListener("input", () => { try { const v = parse(inp.value); if (other) other.value = kind === "m" ? amtStr(v * 12) : amtStr(v / 12); } catch (e) {} });
       inp.addEventListener("keydown", (e) => { const p = findPosten(id); if (e.key === "Enter") { e.preventDefault(); inp.blur(); } else if (e.key === "Escape") { if (p) inp.value = fmtEUR(kind === "m" ? p.monthly : p.yearly); inp.blur(); } });
       inp.addEventListener("blur", () => {
@@ -641,9 +661,15 @@ function mount(root, ctx) {
     }));
     // Wert: live beim Tippen, speichern beim Verlassen
     root.querySelectorAll("[data-tval]").forEach((el) => {
-      el.addEventListener("focus", () => el.select());
-      el.addEventListener("input", () => { const t = split.pots.find((x) => x.id == el.dataset.tval); if (t) { t.value = parseNum(el.value); liveSplit(); } });
-      el.addEventListener("change", () => { const id = +el.dataset.tval, t = split.pots.find((x) => x.id == id); if (t) api.updatePot(id, { value: t.value }).catch((e) => { toast(e.message, true); refresh(); }); });
+      wireAmt(el, false);
+      el.addEventListener("input", () => { const t = split.pots.find((x) => x.id == el.dataset.tval); if (!t) return; try { t.value = parse(el.value); } catch (_) {} /* zu groß/ungültig: alten Wert halten, Meldung erst beim Verlassen */ liveSplit(); });
+      el.addEventListener("change", () => {
+        const id = +el.dataset.tval, t = split.pots.find((x) => x.id == id); if (!t) return;
+        let v; try { v = parse(el.value); } catch (e) { toast(e.message, true); el.value = t.mode === "percent" ? (t.value || 0) : amtStr(t.value || 0); liveSplit(); return; }
+        t.value = v; el.value = t.mode === "percent" ? v : amtStr(v);
+        api.updatePot(id, { value: v }).catch((e) => { toast(e.message, true); refresh(); });
+        liveSplit();
+      });
       el.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); el.blur(); } });
     });
     // Löschen
@@ -744,6 +770,7 @@ function mount(root, ctx) {
       closeMenu(); removeConfirm();
       document.removeEventListener("click", onDocClick);
       document.removeEventListener("keydown", ledgerTab);
+      document.removeEventListener("keydown", onFocusModeKey, true);
       window.removeEventListener("resize", onResize);
       if (canvas) canvas.removeEventListener("scroll", onScroll);
     },
