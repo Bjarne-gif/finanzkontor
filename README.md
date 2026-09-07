@@ -4,13 +4,15 @@ Browserbasiertes Tool für Einnahmen, Kosten und Vermögen – selbst gehostet,
 dockerfähig, Daten verschlüsselt. Modularer Aufbau: jede Funktion ist ein
 eigener Baustein, alle laufen im selben Rahmen.
 
-**Stand:** v0.5.0 · Stufen 1–2 abgeschlossen, Stufe 3 (Vermögen) — Backend
-(Überschussverwendung) **fertig** (Backend + Oberfläche). Ledger: Kategorien &
+**Stand:** v0.9.6 · Stufen 1–5 abgeschlossen (Ledger, Überschussverwendung,
+Vermögen, Verträge & Abos, Dateiverwaltung). Ledger: Kategorien &
 Posten mit Betrag + Intervall (monatlich/jährlich), Beträge kreuzweise
 editierbar, zeilenweises Anlegen direkt in der Tabelle, volle Tastatur-/Tab-
-Bedienung, Posten sortieren und ganze Bereiche per Drag verschieben,
-Inaktiv/Löschen, Live-Berechnung von Einnahmen/Kosten/Überschuss, Autospeichern
-und gemerkter Bearbeitungsstand.
+Bedienung, Posten sortieren und ganze Bereiche per Drag verschieben (mit
+sauberer Drag-Optik: schwebender Klon, graue Ablagefläche, durchlaufender
+Rahmen), Inaktiv/Löschen, Live-Berechnung von Einnahmen/Kosten/Überschuss,
+Autospeichern und gemerkter Bearbeitungsstand. Kosten-Posten mit hinterlegtem
+Vertrag zeigen ein klickbares Symbol, das direkt in die Vertragsansicht springt.
 
 Stufe 2 verteilt den Überschuss auf frei anlegbare **Töpfe** (fester €-Betrag
 oder Prozent des Überschusses) und zeigt, was **übrig** bleibt. Wollen die Töpfe
@@ -20,6 +22,15 @@ je monatlich und jährlich); Töpfe lassen sich anlegen, umbenennen, zwischen �
 umschalten, per Griff sortieren und löschen. Alles läuft über `/api/split` und
 ist damit auch für Auswertungen/KI abfragbar. Persistent gespeichert werden die
 Töpfe; Verteilung und Übrig werden live aus Ledger + Töpfen berechnet.
+
+Stufe 3 (**Vermögen**) verwaltet Besitz/Schulden in Klassen mit 3-Achsen-Profil
+(liquide/Risiko/Art), berechnet Netto, Quoten, Notgroschen-Reichweite und
+Klumpenrisiko. Stufe 4 (**Verträge & Abos**) hängt ein Vertragsprofil an einen
+bestehenden Kosten-Posten (1:1-Bindung), rechnet Kündigungsfristen („Kündigen
+bis"), verwaltet Vertragskategorien, Status/Pause und Dokumente. Stufe 5
+(**Dateiverwaltung**) bündelt alle Vertragsdokumente in einem Modal mit
+eingebettetem PDF-Viewer, Umbenennen und Drag-Umhängen/Sortieren; Dokumente
+verwaisen statt zu verschwinden, wenn ein Vertrag entfernt wird.
 
 ## Schnellstart (Docker)
 
@@ -113,6 +124,7 @@ core/             Kern: auth, crypto, db, appstate, registry (Modul-System)
 modules/ledger/   Baustein Stufe 1 (Ledger: Kategorien, Posten, Summen)
 modules/split/    Baustein Stufe 2 (Überschussverwendung: Töpfe + Verteilung)
 modules/assets/   Baustein Stufe 3 (Vermögen: Klassen/Positionen, Kennzahlen)
-static/           Frontend (SPA): index.html, css/, js/
-data/             Private Daten (nicht im Git)
+modules/contracts/ Baustein Stufe 4+5 (Verträge & Abos + Dateiverwaltung, verschlüsselte Dokumente)
+static/           Frontend (SPA): index.html, css/, js/modules/*.js
+data/             Private Daten inkl. data/docs/<db>/ (nicht im Git)
 ```
