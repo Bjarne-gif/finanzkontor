@@ -4,7 +4,7 @@ Browserbasiertes Tool für Einnahmen, Kosten und Vermögen – selbst gehostet,
 dockerfähig, Daten verschlüsselt. Modularer Aufbau: jede Funktion ist ein
 eigener Baustein, alle laufen im selben Rahmen.
 
-**Stand:** v0.9.6 · Stufen 1–5 abgeschlossen (Ledger, Überschussverwendung,
+**Stand:** v0.9.7 · Stufen 1–5 abgeschlossen (Ledger, Überschussverwendung,
 Vermögen, Verträge & Abos, Dateiverwaltung). Ledger: Kategorien &
 Posten mit Betrag + Intervall (monatlich/jährlich), Beträge kreuzweise
 editierbar, zeilenweises Anlegen direkt in der Tabelle, volle Tastatur-/Tab-

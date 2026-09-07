@@ -201,13 +201,11 @@
 .cxwrap .docsec .dt{ display:flex; align-items:center; gap:9px; }
 .cxwrap .docsec .dt .cnt{ font-family:var(--font-num); font-size:12px; color:var(--text-dim); background:var(--surface-2); border:1px solid var(--border); border-radius:20px; padding:1px 9px; }
 .cxwrap .docsec .dt .sp{ flex:1; }
-.cxwrap .fmmore{ cursor:pointer; color:var(--text-faint); font-size:17px; line-height:1; padding:2px 5px; border-radius:6px; position:relative; }
-.cxwrap .fmmore:hover{ color:var(--text); background:var(--surface-2); }
-.cxwrap .fmmenu{ position:absolute; top:26px; right:0; min-width:210px; background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius); box-shadow:0 14px 34px -14px rgba(0,0,0,.7); padding:5px; z-index:40; display:none; text-align:left; }
-.cxwrap .fmmenu.show{ display:block; }
-.cxwrap .fmmenu button{ display:flex; align-items:center; gap:10px; width:100%; text-align:left; background:none; border:0; color:var(--text); font:inherit; font-size:13px; padding:8px 10px; border-radius:6px; cursor:pointer; }
-.cxwrap .fmmenu button:hover{ background:var(--surface-3); }
-.cxwrap .fmmenu .mi{ width:16px; text-align:center; color:var(--text-dim); }
+/* Dateiverwaltungs-Button (Stil 1 getönt, in Kategoriefarbe --cat) — Ordner-Icon 20px wie das Haushalts-Verknüpfungs-Icon */
+.cxwrap .docsec .dt .fmbtn{ display:inline-flex; align-items:center; gap:7px; font:inherit; font-size:12.5px; font-weight:500; cursor:pointer; line-height:1; padding:5px 11px 5px 9px; border-radius:8px; color:var(--cat,var(--accent)); background:color-mix(in srgb, var(--cat,var(--accent)) 12%, transparent); border:1px solid color-mix(in srgb, var(--cat,var(--accent)) 45%, transparent); transition:filter .12s var(--ease,cubic-bezier(.4,0,.2,1)), background .12s var(--ease,cubic-bezier(.4,0,.2,1)), transform .12s var(--ease,cubic-bezier(.4,0,.2,1)); }
+.cxwrap .docsec .dt .fmbtn:hover{ transform:translateY(-1px); background:color-mix(in srgb, var(--cat,var(--accent)) 20%, transparent); }
+.cxwrap .docsec .dt .fmbtn .ic{ width:22px; height:22px; flex:none; display:grid; place-items:center; }
+.cxwrap .docsec .dt .fmbtn .ic svg{ width:20px; height:20px; display:block; }
 
 .cx-fmscrim{ position:fixed; inset:0; background:rgba(0,0,0,.72); display:none; place-items:center; padding:20px; z-index:70; }
 .cx-fmscrim.show{ display:grid; }

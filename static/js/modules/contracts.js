@@ -110,7 +110,7 @@ function mount(root, ctx) {
   const closeMenu = () => rmenu.classList.remove("show");
   const closeOverlay = () => overlay.classList.remove("show");
   const closePdf = () => { pdf.classList.remove("show"); pdf.querySelector("#cxPdfMain").innerHTML = ""; ui.openDoc = null; saveUi(); };
-  const onDocClick = (e) => { if (!rmenu.contains(e.target)) closeMenu(); document.querySelectorAll(".fmmenu.show").forEach((m) => { if (!m.parentElement.contains(e.target)) m.classList.remove("show"); }); };
+  const onDocClick = (e) => { if (!rmenu.contains(e.target)) closeMenu(); };
   document.addEventListener("click", onDocClick);
   pdf.querySelector("#cxPdfClose").addEventListener("click", closePdf);
   pdf.querySelector("#cxPdfBar").addEventListener("click", () => {
@@ -707,10 +707,8 @@ function mount(root, ctx) {
     const body = det.querySelector("#e_body");
     body.innerHTML = formFields(it);
     const docsec = el("div", "docsec");
-    docsec.innerHTML = `<div class="dt"><span>Dokumente</span><span class="cnt">${it.docs.length}</span><span class="sp"></span><span class="fmmore" title="Mehr">⋯<div class="fmmenu"><button data-fmopen="1"><span class="mi">⚙</span> Dateiverwaltung öffnen…</button></div></span></div>`;
-    const more = docsec.querySelector(".fmmore"), menu = docsec.querySelector(".fmmenu");
-    more.addEventListener("click", (e) => { e.stopPropagation(); menu.classList.toggle("show"); });
-    menu.querySelector("[data-fmopen]").addEventListener("click", (e) => { e.stopPropagation(); menu.classList.remove("show"); openFileManager(); });
+    docsec.innerHTML = `<div class="dt"><span>Dokumente</span><span class="cnt">${it.docs.length}</span><span class="sp"></span><button class="fmbtn" style="--cat:${col}" title="Dateiverwaltung öffnen"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7.5a1.8 1.8 0 0 1 1.8-1.8h3.2l1.8 1.8h6.4A1.8 1.8 0 0 1 20 9.3v7.4a1.8 1.8 0 0 1-1.8 1.8H5.8A1.8 1.8 0 0 1 4 16.7V7.5Z"/></svg></span>Verwaltung</button></div>`;
+    docsec.querySelector(".fmbtn").addEventListener("click", (e) => { e.stopPropagation(); openFileManager(); });
     it.docs.forEach((d) => {
       const doc = el("div", "doc");
       doc.innerHTML = `<span class="fi">${(d.filename.split(".").pop() || "").slice(0, 4).toUpperCase() || "DOC"}</span><span class="fmeta"><div class="fn">${esc(d.filename)}</div><div class="fs">${fmtSize(d.size)}</div></span><span class="fx" data-del="${d.id}" title="Vom Vertrag lösen (→ Verwaist)">✕</span>`;
