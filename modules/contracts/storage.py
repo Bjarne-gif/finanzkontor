@@ -11,7 +11,7 @@ import stat
 import uuid
 
 import config
-from core import crypto
+from core import crypto, db
 
 MAX_BYTES = 15 * 1024 * 1024  # 15 MB je Datei
 
@@ -49,13 +49,33 @@ def content_info(filename):
     return (guessed, False)
 
 
+def _db_folder():
+    """Ordnername der aktiven DB (ohne .db), auf sichere Zeichen reduziert."""
+    name = db.safe_name(db.active_db() or "haushalt")
+    stem = name[:-3] if name.endswith(".db") else name
+    return "".join(c for c in stem if c.isalnum() or c in "-_") or "db"
+
+
 def _docs_dir():
+    """Docs-Ordner der aktiven DB: DATA_DIR/docs/<db>/ (pro DB getrennt)."""
     config.DOCS_DIR.mkdir(parents=True, exist_ok=True)
+    d = config.DOCS_DIR / _db_folder()
+    d.mkdir(parents=True, exist_ok=True)
     try:
         os.chmod(config.DOCS_DIR, stat.S_IRWXU)  # 700
+        os.chmod(d, stat.S_IRWXU)
     except OSError:
         pass
-    return config.DOCS_DIR
+    return d
+
+
+def _resolve(stored_name):
+    """Pfad einer bestehenden Datei: erst DB-Ordner, dann alter flacher Ordner (Legacy)."""
+    p = _docs_dir() / stored_name
+    if p.exists():
+        return p
+    legacy = config.DOCS_DIR / stored_name
+    return legacy if legacy.exists() else p
 
 
 def save(data: bytes) -> str:
@@ -69,30 +89,29 @@ def save(data: bytes) -> str:
 
 
 def read(stored_name: str) -> bytes:
-    path = _docs_dir() / stored_name
-    return crypto.decrypt_bytes(path.read_bytes())
+    return crypto.decrypt_bytes(_resolve(stored_name).read_bytes())
 
 
 def delete(stored_name: str):
     if not stored_name:
         return
-    path = _docs_dir() / stored_name
     try:
-        path.unlink()
+        _resolve(stored_name).unlink()
     except FileNotFoundError:
         pass
 
 
 def cleanup_orphans(known_names):
-    """Löscht verschlüsselte Dateien, die keine DB-Zeile mehr haben.
+    """Löscht verwaiste Dateien **nur im Ordner der aktiven DB**.
 
-    Fängt den Fall ab, dass ein Ledger-Posten gelöscht wurde (DB-Kaskade räumt
-    nur die Metadaten). Leichtgewichtig – bei einem Einzelnutzer-Tool sind das
-    wenige Dateien."""
-    if not config.DOCS_DIR.exists():
+    Wird nicht mehr automatisch beim Laden aufgerufen (das löschte früher Dateien
+    fremder DBs, s. v0.7.6), sondern gezielt aus der Dateiverwaltung.
+    """
+    d = _docs_dir()
+    if not d.exists():
         return
     known = set(known_names or [])
-    for p in config.DOCS_DIR.glob("*.enc"):
+    for p in d.glob("*.enc"):
         if p.name not in known:
             try:
                 p.unlink()

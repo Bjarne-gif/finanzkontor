@@ -30,12 +30,20 @@ function parse(raw) {
 }
 
 function mount(root, ctx) {
-  const { api, store, toast } = ctx;
+  const { api, store, toast, bus } = ctx;
   const dbName = (store.get("state") && store.get("state").active_db) || "db";
   const UIKEY = "fk_ledger_ui_" + dbName;
 
   let data = null, menuEl = null, pDrag = null, confirmEl = null, catDrag = null, catSettling = null;
   let draftKey = 1, pendingFocus = null;
+  // Vertrags-Info je Posten (live aus contractsState) für das Sprung-Symbol im Namensfeld
+  let contractMap = new Map();
+  const VSYM = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9.5 14.5l5-5"/><path d="M12.5 6.5l1.2-1.2a3.6 3.6 0 0 1 5.1 5.1L17.6 11.6"/><path d="M11.5 17.5l-1.2 1.2a3.6 3.6 0 0 1-5.1-5.1L6.4 12.4"/></svg>`;
+  const vsymSlot = (p) => {
+    const c = p && contractMap.get(p.id);
+    if (!c) return `<span class="lgvsym"></span>`;
+    return `<span class="lgvsym link${p.active ? "" : " struck"}" style="color:${c.color}" data-vjump="${p.id}" title="Zum Vertrag springen — ${esc(c.tip)}">${VSYM}</span>`;
+  };
 
   // ---- Stufe 2: Überschussverwendung (Töpfe) ----
   const split = { pots: [] };            // aus /api/split geladen; Verteilung wird lokal gerechnet
@@ -74,8 +82,35 @@ function mount(root, ctx) {
   const canvas = root.closest(".canvas");
   const onScroll = debounce(() => { if (canvas) { ui.scroll = canvas.scrollTop; saveUi(); } }, 150);
   if (canvas) canvas.addEventListener("scroll", onScroll, { passive: true });
+  const onVsymClick = (e) => { const s = e.target.closest(".lgvsym.link"); if (!s) return; e.stopPropagation(); jumpToContract(+s.dataset.vjump); };
+  root.addEventListener("click", onVsymClick);
 
-  async function refresh() { data = await api.ledgerState(); await loadSplit(); render(); }
+  async function refresh() { data = await api.ledgerState(); await Promise.all([loadSplit(), loadContracts()]); render(); }
+
+  // Vertrags-Posten live laden (posten_id -> Farbe/Tooltip); Fehler dürfen den Haushalt nicht blockieren
+  async function loadContracts() {
+    try {
+      const r = await api.contractsState();
+      const colorOf = new Map((r.categories || []).map((c) => [c.id, c.color || "var(--accent)"]));
+      const m = new Map();
+      (r.contracts || []).forEach((c) => {
+        if (c.posten_id == null) return;
+        const tip = [c.vendor, c.label].filter(Boolean).join(" · ") || "Vertrag";
+        m.set(c.posten_id, { color: colorOf.get(c.category_id) || "var(--accent)", tip });
+      });
+      contractMap = m;
+    } catch (_) { contractMap = new Map(); }
+  }
+
+  // Sprung in die Verträge-Ansicht: selId vormerken + Reiter wechseln (Event-Bus, schlank)
+  function jumpToContract(postenId) {
+    try {
+      const key = "fk_contracts_ui_" + dbName;
+      let cui = {}; try { cui = JSON.parse(localStorage.getItem(key) || "{}"); } catch (_) {}
+      cui.selId = postenId; localStorage.setItem(key, JSON.stringify(cui));
+    } catch (_) {}
+    if (bus && bus.emit) bus.emit("tab:go", "contracts");
+  }
 
   // Töpfe aus dem Backend laden (Verteilung rechnen wir lokal für die Live-Anzeige)
   async function loadSplit() {
@@ -174,7 +209,7 @@ function mount(root, ctx) {
     return rp("ghost",
       `<button class="mGrip gplus" data-gadd="${cid}" data-gk="${gd.k}" title="Posten anlegen" tabindex="-1">+</button>`
       + `<span class="mInfo cInfo"><input class="g-note" data-gc="${cid}" data-gk="${gd.k}" placeholder="Kommentar…" value="${esc(gd.note || "")}" /></span>`
-      + `<span class="mName cName"><input class="g-name" data-gc="${cid}" data-gk="${gd.k}" placeholder="Neuer Posten…" value="${esc(gd.name || "")}" /></span>`
+      + `<span class="mName cName"><span class="lgvsym"></span><input class="g-name" data-gc="${cid}" data-gk="${gd.k}" placeholder="Neuer Posten…" value="${esc(gd.name || "")}" /></span>`
       + `<span class="mAmt"><input class="g-m" data-gc="${cid}" data-gk="${gd.k}" inputmode="decimal" placeholder="0,00" value="${esc(gd.m || "")}" /></span>`
       + `<span class="mMenu"></span>`,
       `<span class="yw"><input class="g-y" data-gc="${cid}" data-gk="${gd.k}" inputmode="decimal" placeholder="0,00" value="${esc(gd.y || "")}" /></span>`, `data-block="${cid}"`);
@@ -256,7 +291,7 @@ function mount(root, ctx) {
     if (empty) {
       html = `<div class="emptyrow"><div class="ebox ebox-main"><span>Noch keine Bereiche. Lege unten einen an.</span></div><div class="ebox ebox-year"></div></div>`;
     } else {
-      html = rp("first hd", `<span class="mGrip"></span><span class="mInfo">Information</span><span class="mName">Posten</span><span class="mAmt">Monatlich</span><span class="mMenu"></span>`, `<span class="yhd">Jährlich</span>`);
+      html = rp("first hd", `<span class="mGrip"></span><span class="mInfo">Information</span><span class="mName"><span class="lgvsym"></span>Posten</span><span class="mAmt">Monatlich</span><span class="mMenu"></span>`, `<span class="yhd">Jährlich</span>`);
       html += rp("spacer", "", "");
       cats.forEach((c, ci) => {
         html += rp("ghead grp-" + c.kind, `<span class="mGrip catgrip" data-catgrip="${c.id}" title="Bereich verschieben">⠿</span><span class="ghfull"><span class="dot"></span><input data-catname="${c.id}" value="${esc(c.name)}" /></span><span class="mMenu"><button class="catdel" data-catdel="${c.id}" title="Bereich löschen" tabindex="-1">×</button></span>`, "", `data-block="${c.id}"`);
@@ -264,7 +299,7 @@ function mount(root, ctx) {
           html += rp("row " + (p.active ? "" : "inactive"),
             `<span class="mGrip" data-grip="${p.id}" title="Posten verschieben">⠿</span>`
             + `<span class="mInfo cInfo"><input data-note="${p.id}" value="${esc(p.note || "")}" placeholder="Kommentar…" /></span>`
-            + `<span class="mName cName"><input data-name="${p.id}" value="${esc(p.name)}" /></span>`
+            + `<span class="mName cName">${vsymSlot(p)}<input data-name="${p.id}" value="${esc(p.name)}" /></span>`
             + `<span class="mAmt">${valCell("m", p)}</span>`
             + `<span class="mMenu"><button class="dots" data-menu="${p.id}" tabindex="-1">⋯</button></span>`,
             `<span class="yw">${valCell("y", p)}</span>`,
@@ -273,7 +308,7 @@ function mount(root, ctx) {
         normDrafts(c.id);
         (ui.drafts[c.id] || []).forEach((gd) => { html += ghostRowHTML(c.id, gd); });
         const isLast = ci === cats.length - 1, scls = c.kind === "income" ? "pos" : "neg";
-        html += rp("sum" + (isLast ? " last" : ""), `<span class="mGrip"></span><span class="mInfo sumlbl">Summe</span><span class="mName"></span><span class="mAmt"><span class="sumv ${scls}">${fmtEUR(c.monthly)}</span></span><span class="mMenu"></span>`, `<span class="yw"><span class="sumv ${scls}">${fmtEUR(c.yearly)}</span></span>`, `data-block="${c.id}"`);
+        html += rp("sum" + (isLast ? " last" : ""), `<span class="mGrip"></span><span class="mInfo sumlbl">Summe</span><span class="mName"><span class="lgvsym"></span></span><span class="mAmt"><span class="sumv ${scls}">${fmtEUR(c.monthly)}</span></span><span class="mMenu"></span>`, `<span class="yw"><span class="sumv ${scls}">${fmtEUR(c.yearly)}</span></span>`, `data-block="${c.id}"`);
         if (!isLast) html += rp("spacer", "", "", `data-block="${c.id}"`);
       });
     }
@@ -281,8 +316,8 @@ function mount(root, ctx) {
 
     root.innerHTML = `<div class="ledger2" style="--mw:${w.mw}px;--yw:${w.yw}px;--emw:${w.emw}px;--eyw:${w.eyw}px"><div class="leftcol"><div class="areatitle">Einzelpositionen</div><div class="tablearea">${html}</div></div><div class="plancol"><div class="areatitle">Zusammenfassung &amp; Aufteilung</div>${renderPlan(empty)}</div></div>`;
     if (canvas && ui.scroll) canvas.scrollTop = ui.scroll;
-    if (catDrag) blockRows(catDrag.cid).forEach((r) => { r.style.visibility = "hidden"; });
-    if (catSettling != null) blockRows(catSettling).forEach((r) => { r.style.visibility = "hidden"; });
+    if (catDrag) blockRows(catDrag.cid).forEach((r) => { r.classList.add("catghost"); });
+    if (catSettling != null) blockRows(catSettling).forEach((r) => { r.classList.add("catghost"); });
     wire();
     applyFocus();
     syncWidth();
@@ -384,17 +419,25 @@ function mount(root, ctx) {
     const fromIndex=order0.indexOf(cid);const mc0={};
     order0.forEach((oc)=>{const g=blockGeom(oc);if(g)mc0[oc]=g.mid;});
     const dr=blockRows(cid);if(!dr.length)return;
-    const first=dr[0].getBoundingClientRect(),last=dr[dr.length-1].getBoundingClientRect();
-    const fRows=blockRows(order0[0]),lRows=blockRows(order0[order0.length-1]);
-    const listTop0=(fRows.length?fRows[0].getBoundingClientRect().top:first.top),listBottom0=(lRows.length?lRows[lRows.length-1].getBoundingClientRect().bottom:last.bottom);
+    const box=dr.filter((r)=>!r.classList.contains("spacer"));   // Klon/Höhe = Kasten bis Summe (ohne nachfolgenden Spacer)
+    const first=box[0].getBoundingClientRect(),lastReal=box[box.length-1].getBoundingClientRect();
+    const fRows=blockRows(order0[0]).filter((r)=>!r.classList.contains("spacer")),lRows=blockRows(order0[order0.length-1]).filter((r)=>!r.classList.contains("spacer"));
+    const listTop0=(fRows.length?fRows[0].getBoundingClientRect().top:first.top),listBottom0=(lRows.length?lRows[lRows.length-1].getBoundingClientRect().bottom:lastReal.bottom);
     const sc=getScroller(root);const led=root.querySelector(".ledger2");
     const clone=document.createElement("div");clone.className="catclone";
-    clone.setAttribute("style",((led&&led.getAttribute("style"))||"")+";position:fixed;left:"+first.left+"px;top:"+first.top+"px;width:"+first.width+"px;z-index:9999;pointer-events:none;margin:0;");
-    dr.forEach((r)=>{const cr=r.cloneNode(true);const si=r.querySelectorAll("input"),di=cr.querySelectorAll("input");si.forEach((el,idx)=>{if(di[idx])di[idx].value=el.value;});clone.appendChild(cr);});
+    clone.setAttribute("style",((led&&led.getAttribute("style"))||"")+";position:fixed;left:"+first.left+"px;top:"+first.top+"px;width:"+first.width+"px;z-index:45;pointer-events:none;margin:0;");
+    box.forEach((r)=>{const cr=r.cloneNode(true);const si=r.querySelectorAll("input"),di=cr.querySelectorAll("input");si.forEach((el,idx)=>{if(di[idx])di[idx].value=el.value;});clone.appendChild(cr);});
     document.body.appendChild(clone);
-    dr.forEach((r)=>{r.style.visibility="hidden";});
-    catDrag={cid,order0,fromIndex,mc0,mcCid:mc0[cid],clone,cloneOffY:first.top-e.clientY,blockH:last.bottom-first.top,listTop0,listBottom0,footprint:(last.bottom-first.top)+9,startClientY:e.clientY,startScroll:sc.scrollTop,sc,maxScroll:Math.max(0,sc.scrollHeight-sc.clientHeight),lastClientY:e.clientY,toIndex:fromIndex,rows:dr,autoRAF:0};
+    dr.forEach((r)=>{r.classList.add("catghost");});
+    const blockH=lastReal.bottom-first.top;
+    const taBg=root.querySelector(".tablearea");
+    const taTop0=taBg?taBg.getBoundingClientRect().top:0;
+    const sumBottom0={};
+    order0.forEach((oc)=>{const rr=blockRows(oc).filter((x)=>!x.classList.contains("spacer"));const sr=rr[rr.length-1];if(sr)sumBottom0[oc]=sr.getBoundingClientRect().bottom;});
+    catDrag={cid,order0,fromIndex,mc0,mcCid:mc0[cid],clone,cloneOffY:first.top-e.clientY,blockH,listTop0,listBottom0,footprint:blockH+9,startClientY:e.clientY,startScroll:sc.scrollTop,sc,maxScroll:Math.max(0,sc.scrollHeight-sc.clientHeight),lastClientY:e.clientY,toIndex:fromIndex,rows:dr,autoRAF:0,sumBottom0,taTop0,taBg};
     root.classList.add("catdrag-on");
+    root.classList.add("catdrag-blocks");
+    applyCatShift();
     window.addEventListener("pointermove",onCatMove);window.addEventListener("pointerup",onCatUp);window.addEventListener("pointercancel",cancelCatDrag);window.addEventListener("keydown",onCatKey,true);}
   function onCatMove(e){if(!catDrag)return;catDrag.lastClientY=e.clientY;updateCatDrag();maybeAutoScroll();}
   function updateCatDrag(){const D=catDrag;if(!D)return;const y=D.lastClientY;const dScroll=D.sc.scrollTop-D.startScroll;
@@ -404,11 +447,26 @@ function mount(root, ctx) {
     D.order0.forEach((oc)=>{if(oc===D.cid)return;const mcn=D.mc0[oc]-dScroll;if(D.mc0[oc]>D.mcCid){if(cloneBot>mcn)below++;}else{if(cloneTop<mcn)above++;}});
     const toIndex=D.fromIndex+below-above;
     if(toIndex!==D.toIndex){D.toIndex=toIndex;applyCatShift();}}
-  function applyCatShift(){const{order0,cid,fromIndex,toIndex,footprint}=catDrag;
-    order0.forEach((oc,i)=>{if(oc===cid)return;let sh=0;
-      if(toIndex>fromIndex){if(i>fromIndex&&i<=toIndex)sh=-footprint;}
-      else if(toIndex<fromIndex){if(i>=toIndex&&i<fromIndex)sh=footprint;}
-      blockRows(oc).forEach((r)=>{r.style.transition="transform .16s var(--ease)";r.style.transform=sh?("translateY("+sh+"px)"):"";});});}
+  function applyCatShift(){const D=catDrag;if(!D)return;const{order0,cid,fromIndex,toIndex,footprint,sumBottom0,taTop0,taBg}=D;
+    let maxBot=-Infinity,lastCid=null;
+    order0.forEach((oc,i)=>{
+      let sh=0;
+      if(oc!==cid){
+        if(toIndex>fromIndex){if(i>fromIndex&&i<=toIndex)sh=-footprint;}
+        else if(toIndex<fromIndex){if(i>=toIndex&&i<fromIndex)sh=footprint;}
+        blockRows(oc).forEach((r)=>{r.style.transition="transform .16s var(--ease)";r.style.transform=sh?("translateY("+sh+"px)"):"";});
+      }
+      const vb=(sumBottom0[oc]||0)+sh;                       // sichtbare Unterkante der Summe dieses Blocks
+      if(vb>maxBot){maxBot=vb;lastCid=oc;}
+    });
+    // Unterkante der grauen Fläche = tiefste echte Summe ODER Ziel-Slot beim Runterziehen (damit unten nicht Grau fehlt)
+    let dropBot=-Infinity;
+    if(toIndex>fromIndex){const tOc=order0[Math.min(toIndex,order0.length-1)];dropBot=(sumBottom0[tOc]||0);}
+    const pseudoBot=Math.max(maxBot,dropBot);
+    if(taBg)taBg.style.setProperty("--catdrag-h",Math.max(0,Math.round(pseudoBot-taTop0))+"px");
+    root.querySelectorAll(".rp.sum.catlast").forEach((r)=>r.classList.remove("catlast"));
+    root.querySelectorAll(".rp.spacer.catlastgap").forEach((r)=>r.classList.remove("catlastgap"));
+    if(lastCid!=null && maxBot>=dropBot)blockRows(lastCid).forEach((r)=>{if(r.classList.contains("sum"))r.classList.add("catlast");if(r.classList.contains("spacer"))r.classList.add("catlastgap");});}
   function maybeAutoScroll(){const D=catDrag;if(!D||D.autoRAF)return;const EDGE=56;const r=D.sc.getBoundingClientRect();const y=D.lastClientY;
     if(y>=r.top+EDGE&&y<=r.bottom-EDGE)return;
     const step=()=>{if(!catDrag){return;}const rr=catDrag.sc.getBoundingClientRect();const yy=catDrag.lastClientY;let dd=0;
@@ -419,10 +477,10 @@ function mount(root, ctx) {
       if(catDrag.sc.scrollTop!==before){updateCatDrag();catDrag.autoRAF=requestAnimationFrame(step);}else{catDrag.autoRAF=0;}};
     D.autoRAF=requestAnimationFrame(step);}
   function stopAuto(){if(catDrag&&catDrag.autoRAF){cancelAnimationFrame(catDrag.autoRAF);catDrag.autoRAF=0;}}
-  function endCatDrag(){stopAuto();window.removeEventListener("pointermove",onCatMove);window.removeEventListener("pointerup",onCatUp);window.removeEventListener("pointercancel",cancelCatDrag);window.removeEventListener("keydown",onCatKey,true);root.classList.remove("catdrag-on");catDrag=null;}
+  function endCatDrag(){stopAuto();window.removeEventListener("pointermove",onCatMove);window.removeEventListener("pointerup",onCatUp);window.removeEventListener("pointercancel",cancelCatDrag);window.removeEventListener("keydown",onCatKey,true);root.classList.remove("catdrag-on","catdrag-blocks");root.querySelectorAll(".rp.sum.catlast").forEach((r)=>r.classList.remove("catlast"));root.querySelectorAll(".rp.spacer.catlastgap").forEach((r)=>r.classList.remove("catlastgap"));const taBg=root.querySelector(".tablearea");if(taBg)taBg.style.removeProperty("--catdrag-h");catDrag=null;}
   function onCatKey(e){if(e.key==="Escape"&&catDrag){e.preventDefault();cancelCatDrag();}}
   function cancelCatDrag(){if(!catDrag)return;const D=catDrag;stopAuto();
-    D.rows.forEach((r)=>{r.style.visibility="";});
+    D.rows.forEach((r)=>{r.classList.remove("catghost");});
     root.querySelectorAll(".rp[data-block]").forEach((r)=>{r.style.transition="transform .16s var(--ease)";r.style.transform="";});
     if(D.clone)D.clone.remove();
     setTimeout(()=>{root.querySelectorAll(".rp[data-block]").forEach((r)=>{r.style.transition="";});},180);
@@ -433,7 +491,7 @@ function mount(root, ctx) {
     if(canvas)ui.scroll=canvas.scrollTop;
     endCatDrag();render();
     api.reorderCategories(no).catch((err)=>{toast(err.message,true);refresh();});
-    if(clone){catSettling=cid;blockRows(cid).forEach((r)=>r.style.visibility="hidden");const targetTop=gheadTop(cid);clone.style.transition="top .18s var(--ease)";requestAnimationFrame(()=>{clone.style.top=targetTop+"px";});setTimeout(()=>{catSettling=null;blockRows(cid).forEach((r)=>{r.style.visibility="";});try{clone.remove();}catch(e){}},210);}else{catSettling=null;}}
+    if(clone){catSettling=cid;blockRows(cid).forEach((r)=>r.classList.add("catghost"));const targetTop=gheadTop(cid);clone.style.transition="top .18s var(--ease)";requestAnimationFrame(()=>{clone.style.top=targetTop+"px";});setTimeout(()=>{catSettling=null;blockRows(cid).forEach((r)=>{r.classList.remove("catghost");});try{clone.remove();}catch(e){}},210);}else{catSettling=null;}}
 
   // ---- Posten verschieben (weicher Klon, blockübergreifend, gleiche Art) ----
   function wirePostenDrag(){root.querySelectorAll(".rp.row [data-grip]").forEach((g)=>{g.addEventListener("pointerdown",(e)=>{if(e.button!=null&&e.button!==0)return;startPostenDrag(+g.dataset.grip,e);});});}
@@ -773,6 +831,7 @@ function mount(root, ctx) {
       document.removeEventListener("keydown", onFocusModeKey, true);
       window.removeEventListener("resize", onResize);
       if (canvas) canvas.removeEventListener("scroll", onScroll);
+      root.removeEventListener("click", onVsymClick);
     },
   };
 }

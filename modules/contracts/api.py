@@ -41,7 +41,10 @@ def state():
         posten = {p["id"]: p for p in ledger_repo.list_posten(c)}
         categories = repo.list_categories(c)
         contracts = repo.list_contracts(c)
-        storage.cleanup_orphans(repo.all_stored_names(c))
+        # KEIN automatisches cleanup_orphans mehr: mehrere DBs teilen sich EINEN
+        # docs-Ordner, aber all_stored_names(c) kennt nur die aktive DB -> es löschte
+        # die Dateien aller anderen DBs. Aufräumen läuft jetzt nur noch gezielt beim
+        # expliziten Löschen (delete_doc / Vertrag entfernen).
     return jsonify(calc.compute_contracts(posten, categories, contracts))
 
 
@@ -206,3 +209,107 @@ def delete_doc(doc_id):
         stored = repo.delete_doc(c, doc_id)
     storage.delete(stored)
     return jsonify({"ok": True})
+
+
+# ---- Dateiverwaltung (alle Dokumente der aktiven DB) ---------------------
+@bp.get("/docs")
+@auth.login_required
+def list_docs_all():
+    """Alle Dokumente der aktiven DB + Verträge (auch leere) + Kategorien für die Gruppierung."""
+    with _conn() as c:
+        return jsonify({
+            "docs": repo.list_all_docs(c),
+            "contracts": repo.list_contracts_brief(c),
+            "categories": repo.list_categories(c),
+            "db": db.active_db(),
+        })
+
+
+@bp.patch("/doc/<int:doc_id>")
+@auth.login_required
+def patch_doc(doc_id):
+    """Umbenennen (filename) und/oder Umhängen (contract_id=None => verwaist)."""
+    data = request.get_json(silent=True) or {}
+    with _conn() as c:
+        if not repo.get_doc(c, doc_id):
+            return _err("Dokument nicht gefunden.", 404)
+        if "filename" in data:
+            repo.rename_doc(c, doc_id, data.get("filename"))
+        if "contract_id" in data:
+            try:
+                cid = data.get("contract_id")
+                repo.move_doc(c, doc_id, int(cid) if cid is not None else None)
+            except ValueError as e:
+                return _err(str(e))
+    return jsonify({"ok": True})
+
+
+@bp.post("/docs/reorder")
+@auth.login_required
+def reorder_docs_ep():
+    ids = (request.get_json(silent=True) or {}).get("ids", [])
+    with _conn() as c:
+        repo.reorder_docs(c, ids)
+    return jsonify({"ok": True})
+
+
+@bp.get("/doc/<int:doc_id>/download")
+@auth.login_required
+def download_doc(doc_id):
+    with _conn() as c:
+        doc = repo.get_doc(c, doc_id)
+    if not doc:
+        return _err("Dokument nicht gefunden.", 404)
+    try:
+        data = storage.read(doc["stored_name"])
+    except FileNotFoundError:
+        return _err("Datei fehlt auf der Platte.", 404)
+    resp = make_response(data)
+    resp.headers["Content-Type"] = "application/octet-stream"
+    fallback = doc["filename"].encode("ascii", "ignore").decode() or "dokument"
+    resp.headers["Content-Disposition"] = (
+        f"attachment; filename=\"{fallback}\"; filename*=UTF-8''{quote(doc['filename'])}")
+    resp.headers["X-Content-Type-Options"] = "nosniff"
+    return resp
+
+
+@bp.get("/docs/zip")
+@auth.login_required
+def docs_zip():
+    """Alle Dokumente der aktiven DB als ZIP (Original-Dateinamen, Konflikte nummeriert)."""
+    import io
+    import zipfile
+    with _conn() as c:
+        docs = repo.list_all_docs(c)
+    buf = io.BytesIO()
+    seen = {}
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        for d in docs:
+            try:
+                data = storage.read(d["stored_name"])
+            except FileNotFoundError:
+                continue
+            name = (d["filename"] or "dokument").replace("/", "_").replace("\\", "_")
+            if name in seen:
+                seen[name] += 1
+                base, dot, ext = name.rpartition(".")
+                name = f"{base or name} ({seen[name]}){dot + ext if dot else ''}"
+            else:
+                seen[name] = 0
+            z.writestr(name, data)
+    buf.seek(0)
+    resp = make_response(buf.read())
+    resp.headers["Content-Type"] = "application/zip"
+    resp.headers["Content-Disposition"] = 'attachment; filename="dokumente.zip"'
+    return resp
+
+
+@bp.delete("/docs/orphans")
+@auth.login_required
+def delete_orphans():
+    """Alle verwaisten Dokumente (ohne Vertrag) endgültig löschen."""
+    with _conn() as c:
+        names = repo.delete_orphan_docs(c)
+    for n in names:
+        storage.delete(n)
+    return jsonify({"ok": True, "deleted": len(names)})

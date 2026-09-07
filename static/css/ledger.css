@@ -44,10 +44,13 @@
 .rp.ghead:hover .catgrip{opacity:.9}
 .catdrag-on,.catdrag-on *{cursor:grabbing!important;user-select:none!important}
 .catdrag-on.over-locked,.catdrag-on.over-locked *{cursor:not-allowed!important}
-.catclone{background:var(--bg);border-radius:3px;box-shadow:0 16px 38px -10px rgba(0,0,0,.5)}
+.catclone{background:transparent;filter:brightness(.9) drop-shadow(0 5px 12px rgba(0,0,0,.5))}
+.catclone .rp:first-child .mbox,.catclone .rp:first-child .ybox{border-top:1px solid var(--border);border-top-left-radius:var(--radius-lg);border-top-right-radius:var(--radius-lg)}
+.catclone .rp:last-child .mbox,.catclone .rp:last-child .ybox{border-bottom:1px solid var(--border);border-bottom-left-radius:var(--radius-lg);border-bottom-right-radius:var(--radius-lg)}
 /* Posten verschieben (weicher Klon) */
 .rp.row .mGrip{cursor:grab;touch-action:none}
-.pclone{background:var(--bg);border-radius:6px;box-shadow:0 16px 38px -10px rgba(0,0,0,.55);position:fixed;z-index:9999;pointer-events:none;margin:0}
+.pclone{background:transparent;border-radius:var(--radius-sm);filter:brightness(.9) drop-shadow(0 4px 10px rgba(0,0,0,.5));position:fixed;z-index:45;pointer-events:none;margin:0}
+.pclone .mbox,.pclone .ybox{border-top:1px solid var(--border);border-bottom:1px solid var(--border);border-radius:var(--radius-sm)}
 .rp.locked .mbox,.rp.locked .ybox{opacity:.42;filter:saturate(.55)}
 .rp.locked .mGrip,.rp.locked .dots,.rp.locked .catdel{opacity:.2}
 .rp.dragsrc{display:none!important}
@@ -245,3 +248,29 @@ button.gplus:hover{opacity:1;color:var(--accent)}
 }
 .nav-tabs .tab.active .hook { opacity: 1; }
 @media (max-width: 720px) { .nav-tabs { margin-left: 14px; gap: 16px; } .nav-tabs .tab { font-size: 11.5px; } }
+
+/* Vertrags-Symbol im Namensfeld (Klick -> Sprung in die Verträge-Ansicht). Additiv, unter .ledger2 gescopt. */
+.lgvsym{position:relative;width:22px;height:22px;flex:none;display:grid;place-items:center;color:var(--text-faint);margin-right:-4px}
+.lgvsym.link{cursor:pointer;transition:transform .12s var(--ease),filter .12s var(--ease)}
+.lgvsym.link:hover{transform:scale(1.14);filter:brightness(1.15)}
+.lgvsym svg{width:20px;height:20px;display:block}
+.lgvsym.struck::after{content:"";position:absolute;left:0;right:0;top:50%;height:1.6px;background:currentColor;transform:translateY(-50%) rotate(-16deg);border-radius:2px}
+
+/* Kategorie-Drag: Ursprung-Platzhalter — einheitliche graue Fläche (surface) wie bei Vermögen; überschreibt ghead/sum/ghost, Höhe bleibt, keine Bänder/Linien/Inhalte */
+.rp.catghost .mbox,.rp.catghost .ybox{background:var(--surface);border-top-color:transparent}
+.rp.catghost .mbox > *,.rp.catghost .ybox > *{visibility:hidden}
+
+/* Kategorie-Drag: Zeilen/Linien/senkrechte Lücke bleiben unverändert. Hinter den Zeilen liegen zwei
+   GERUNDETE graue Flächen (::before = Monatlich-Spalte, ::after = Jährlich-Spalte) mit dunkler 7-px-Lücke
+   dazwischen. z-index:-1 in isoliertem Kontext -> immer HINTER den Zeilen, verdeckt nie Inhalte.
+   Höhe (nur bis zur letzten Summe, ohne die "+ Kategorie"-Buttons) setzt JS via --catdrag-h. */
+.catdrag-blocks .tablearea{position:relative;isolation:isolate}
+.catdrag-blocks .tablearea::before,.catdrag-blocks .tablearea::after{content:"";position:absolute;top:0;height:var(--catdrag-h,0);background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);z-index:-1;pointer-events:none}
+.catdrag-blocks .tablearea::before{left:0;right:calc(var(--yw) + 7px)}
+.catdrag-blocks .tablearea::after{right:0;width:var(--yw)}
+.catdrag-blocks .rp.row:hover .mbox,.catdrag-blocks .rp.row:hover .ybox,.catdrag-blocks .rp.ghost:hover .mbox,.catdrag-blocks .rp.ghost:hover .ybox{background:var(--surface)}
+
+/* Kategorie-Drag: die aktuell unterste Summe rundet unten ab (bündig mit der grauen Fläche) */
+.catdrag-blocks .rp.sum.catlast .mbox,.catdrag-blocks .rp.sum.catlast .ybox{border-bottom-left-radius:var(--radius-lg);border-bottom-right-radius:var(--radius-lg)}
+/* Kategorie-Drag: der nachlaufende Spacer des untersten Blocks ist unsichtbar (keine graue Zeile/Linie unter der Rundung) */
+.catdrag-blocks .rp.spacer.catlastgap .mbox,.catdrag-blocks .rp.spacer.catlastgap .ybox{background:transparent;border-left-color:transparent;border-right-color:transparent}

@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 
 APP_NAME = "Finanzkontor"
-APP_VERSION = "0.7.2"
+APP_VERSION = "0.9.6"
 STAGE = "Stufe 4 – Verträge & Abos"
 
 # Verzeichnis für ALLE privaten Daten (DB-Dateien + Keyfile).

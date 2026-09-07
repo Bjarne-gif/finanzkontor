@@ -102,7 +102,7 @@ function mount(root, ctx) {
   const rmenu = el("div", "cx-rmenu");
   const overlay = el("div", "cx-overlay"); overlay.innerHTML = `<div class="cx-modal" id="cxModal"></div>`;
   const pdf = el("div", "cx-pdfscrim");
-  pdf.innerHTML = `<div class="cx-pdfbox"><div class="cx-pdfhead"><span class="pt" id="cxPdfTitle"></span><a id="cxPdfTab" target="_blank" href="#" style="display:none">↗ In neuem Tab</a><span class="px" id="cxPdfClose">✕</span></div><div class="cx-pdfcontent"><div class="cx-pdfmain" id="cxPdfMain"></div><div class="cx-pdfside" id="cxPdfSide"></div></div></div>`;
+  pdf.innerHTML = `<div class="cx-pdfbox"><div class="cx-pdfhead"><span class="pt" id="cxPdfTitle"></span><a id="cxPdfTab" target="_blank" href="#" style="display:none">↗ In neuem Tab</a><span class="px" id="cxPdfClose">✕</span></div><div class="cx-pdfcontent"><div class="cx-pdfmain" id="cxPdfMain"></div><div class="cx-pdfbar" id="cxPdfBar" title="Konfigspalte ein-/ausklappen"><span class="knob"><span class="chev">›</span></span></div><div class="cx-pdfside" id="cxPdfSide"><div class="cx-pdfside-in" id="cxPdfSideIn"></div></div></div></div>`;
   const vendorList = el("datalist"); vendorList.id = "cxVendors";
   const fileInput = el("input"); fileInput.type = "file"; fileInput.accept = ".pdf,image/*,.doc,.docx,.txt,.odt,.xls,.xlsx"; fileInput.style.display = "none";
   document.body.append(rmenu, overlay, pdf, fileInput, vendorList);
@@ -110,9 +110,14 @@ function mount(root, ctx) {
   const closeMenu = () => rmenu.classList.remove("show");
   const closeOverlay = () => overlay.classList.remove("show");
   const closePdf = () => { pdf.classList.remove("show"); pdf.querySelector("#cxPdfMain").innerHTML = ""; ui.openDoc = null; saveUi(); };
-  const onDocClick = (e) => { if (!rmenu.contains(e.target)) closeMenu(); };
+  const onDocClick = (e) => { if (!rmenu.contains(e.target)) closeMenu(); document.querySelectorAll(".fmmenu.show").forEach((m) => { if (!m.parentElement.contains(e.target)) m.classList.remove("show"); }); };
   document.addEventListener("click", onDocClick);
   pdf.querySelector("#cxPdfClose").addEventListener("click", closePdf);
+  pdf.querySelector("#cxPdfBar").addEventListener("click", () => {
+    const box = pdf.querySelector(".cx-pdfbox");
+    ui.pdfCollapsed = box.classList.toggle("collapsed");
+    saveUi();
+  });
   pdf.addEventListener("click", (e) => { if (e.target === pdf) closePdf(); });
   overlay.addEventListener("click", (e) => { if (e.target === overlay) closeOverlay(); });
 
@@ -233,21 +238,24 @@ function mount(root, ctx) {
       return;
     }
     const led = el("div", "ledger");
-    // dynamische Wertspalten-Breite: wächst erst bei großen Beträgen (wie Vermögen)
+    // dynamische Wertspalten-Breite: wächst erst bei großen Beträgen (wie Vermögen).
+    // Wird auf .cxwrap gesetzt (nicht led), damit der an .cxwrap gehängte Drag-Klon denselben Wert erbt.
     const maxLen = Math.max(9, ...items.map((it) => Math.max(fmtEUR(it.monthly).length, fmtEUR(it.yearly).length)));
-    led.style.setProperty("--cx-wertw", Math.max(106, Math.round(maxLen * 8.5 + 26)) + "px");
+    const _cw = root.querySelector(".cxwrap");
+    if (_cw) _cw.style.setProperty("--cx-wertw", Math.max(106, Math.round(maxLen * 8.5 + 26)) + "px");
     led.innerHTML = `<div class="colhead"><span></span><span class="h">Vertragspartner / Posten</span><span class="h r">Kündigen bis</span><span class="h r">mtl.</span><span class="h r">jährl.</span><span></span></div>`;
     const byCat = new Map(); cats.forEach((c) => byCat.set(c.id, []));
     const orphan = [];
     items.forEach((it) => (byCat.has(it.category_id) ? byCat.get(it.category_id) : orphan).push(it));
 
     const block = (cat, rows) => {
-      const g = el("div", "gclass");
+      const g = el("div", "gclass"); if (cat) g.dataset.cid = cat.id;
       const gh = el("div", "ghead");
-      gh.innerHTML = `<span class="grip" title="verschieben">⠿</span><span class="ch-id"><span class="cdot" style="background:${cat ? esc(cat.color || "var(--accent)") : "var(--text-faint)"}"></span>${cat ? `<input class="cname" value="${esc(cat.name)}" data-catname="${cat.id}">` : `<span class="cname" style="border:0">Ohne Kategorie</span>`}</span><span class="ch-act">${cat ? `<button class="del" title="Kategorie löschen" data-delcat="${cat.id}">✕</button>` : ""}</span>`;
+      gh.innerHTML = `${cat ? `<span class="grip" title="verschieben">⠿</span>` : `<span class="grip-void"></span>`}<span class="ch-id"><span class="cdot" style="background:${cat ? esc(cat.color || "var(--accent)") : "var(--text-faint)"}"></span>${cat ? `<input class="cname" value="${esc(cat.name)}" data-catname="${cat.id}">` : `<span class="cname" style="border:0">Ohne Kategorie</span>`}</span><span class="ch-act">${cat ? `<button class="del" title="Kategorie löschen" data-delcat="${cat.id}">✕</button>` : ""}</span>`;
       g.append(gh);
       rows.forEach((it) => {
         const r = el("div", "prow" + (it.posten_id === ui.selId ? " sel" : "") + (it.effective_active ? "" : " inactive"));
+        r.dataset.vid = it.id;
         if (it.posten_id === ui.selId) { const col = catColor(it); r.style.boxShadow = `inset 3px 0 0 ${col}`; r.style.background = `color-mix(in srgb, ${col} 10%, transparent)`; }
         r.innerHTML = `<span class="grip">⠿</span><span class="vname"><span class="nm">${nameLine(it)}</span><span class="sub">${esc(subLine(it))}</span></span><span class="vkuend">${statusChip(it)}</span>${amtCells(it)}<button class="rmenu-btn" data-menu="${it.id}">⋯</button>`;
         r.addEventListener("click", (e) => { if (e.target.closest(".rmenu-btn")) return; ui.selId = (ui.selId === it.posten_id) ? null : it.posten_id; saveUi(); render(); });
@@ -289,6 +297,262 @@ function mount(root, ctx) {
       cursorEnd(inp);
     });
     led.querySelectorAll("[data-delcat]").forEach((b) => b.addEventListener("click", (e) => { e.stopPropagation(); delCategory(+b.dataset.delcat); }));
+    wireDrag();
+  }
+
+  /* ---------------- Drag & Drop (Verträge + Kategorien) ---------------- */
+  const cxwrap = root.querySelector(".cxwrap");
+  const dragCanvas = root.closest(".canvas");
+  let posDrag = null, catDrag = null;
+
+  const blockEl = (cid) => cid == null ? $table.querySelector(".gclass:not([data-cid])") : $table.querySelector(`.gclass[data-cid="${cid}"]`);
+  function catBlocks() {
+    const cats = data.categories || [], items = data.contracts || [];
+    const byCat = new Map(); cats.forEach((c) => byCat.set(c.id, []));
+    const orphan = [];
+    items.forEach((it) => (byCat.has(it.category_id) ? byCat.get(it.category_id) : orphan).push(it));
+    const blocks = cats.map((c) => ({ cid: c.id, rows: byCat.get(c.id) }));
+    if (orphan.length) blocks.push({ cid: null, rows: orphan });
+    return blocks;
+  }
+  function wireDrag() {
+    $table.querySelectorAll(".gclass[data-cid] .ghead > .grip").forEach((g) => g.addEventListener("pointerdown", onCatGrip));
+    $table.querySelectorAll(".prow > .grip").forEach((g) => g.addEventListener("pointerdown", onPosGrip));
+  }
+
+  // --- Verträge (Zeilen; frei zwischen Kategorien inkl. „Ohne Kategorie") ---
+  function onPosGrip(e) {
+    if (e.button != null && e.button !== 0) return;
+    const row = e.target.closest(".prow"); if (!row) return;
+    const g = e.target.closest(".gclass");
+    startPosDrag(row.dataset.vid, g && g.dataset.cid ? +g.dataset.cid : null, e);
+  }
+  function posZone() {
+    const gs = [...$table.querySelectorAll(".gclass")];
+    if (!gs.length) { const r = $table.getBoundingClientRect(); return { top: r.top, bottom: r.bottom }; }
+    return { top: gs[0].getBoundingClientRect().top, bottom: gs[gs.length - 1].getBoundingClientRect().bottom };
+  }
+  function startPosDrag(vid, cid, e) {
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    e.preventDefault();
+    const rowEl = $table.querySelector(`.prow[data-vid="${vid}"]`); if (!rowEl) return;
+    const rect = rowEl.getBoundingClientRect();
+    const orderedRows = [];
+    catBlocks().forEach((b) => b.rows.forEach((it) => { const r = $table.querySelector(`.prow[data-vid="${it.id}"]`); if (r) { const bb = r.getBoundingClientRect(); orderedRows.push({ vid: it.id, cid: b.cid, mc0: (bb.top + bb.bottom) / 2 }); } }));
+    const fromGlobalIdx = orderedRows.findIndex((o) => o.vid == vid);
+    const draggedMc0 = orderedRows[fromGlobalIdx] ? orderedRows[fromGlobalIdx].mc0 : (rect.top + rect.bottom) / 2;
+    const clone = rowEl.cloneNode(true); clone.classList.add("pclone");
+    const dragged = (data.contracts || []).find((x) => x.id == vid);
+    clone.style.background = `color-mix(in srgb, ${dragged ? catColor(dragged) : "var(--accent)"} 14%, var(--surface))`;
+    clone.style.width = rect.width + "px"; clone.style.left = rect.left + "px"; clone.style.top = rect.top + "px";
+    cxwrap.appendChild(clone); cxwrap.classList.add("dragging");
+    const ph = document.createElement("div"); ph.className = "prow ph"; ph.style.height = rect.height + "px";
+    rowEl.after(ph); rowEl.classList.add("dragsrc");
+    const z = posZone();
+    posDrag = { vid: +vid, cid, rowEl, clone, ph, rowH: rect.height, cloneOffY: rect.top - e.clientY, orderedRows, fromGlobalIdx, draggedMc0,
+      listTop0: z.top, listBottom0: z.bottom, sc: dragCanvas, startScroll: dragCanvas ? dragCanvas.scrollTop : 0, lastY: e.clientY, dstCid: cid, dstIndex: -1, raf: 0 };
+    window.addEventListener("pointermove", onPMove);
+    window.addEventListener("pointerup", onPUp);
+    window.addEventListener("pointercancel", cancelP);
+    window.addEventListener("keydown", onPKey, true);
+    updateP();
+  }
+  function onPMove(e) { if (!posDrag) return; posDrag.lastY = e.clientY; updateP(); autoScrollP(); }
+  function flipP(mutator) {
+    const nodes = [...$table.querySelectorAll(".prow:not(.dragsrc), .ghead, .catadd, .srow, .totalrow")];
+    const first = new Map(); nodes.forEach((n) => first.set(n, n.getBoundingClientRect().top));
+    mutator();
+    nodes.forEach((n) => { n.style.transition = "none"; n.style.transform = ""; });
+    void $table.offsetWidth;
+    nodes.forEach((n) => { const dy = first.get(n) - n.getBoundingClientRect().top; if (Math.abs(dy) > 0.5) n.style.transform = `translateY(${dy}px)`; });
+    requestAnimationFrame(() => { nodes.forEach((n) => { if (n.style.transform) { n.style.transition = "transform .16s ease"; n.style.transform = ""; } }); });
+  }
+  function placeP(cid, index) {
+    const g = blockEl(cid); if (!g) return;
+    const rows = [...g.querySelectorAll(".prow")].filter((x) => !x.classList.contains("dragsrc") && !x.classList.contains("ph"));
+    if (index >= rows.length) { const anchor = g.querySelector(".catadd") || g.querySelector(".srow"); if (anchor) anchor.before(posDrag.ph); else g.appendChild(posDrag.ph); }
+    else rows[index].before(posDrag.ph);
+  }
+  function mapIns(ins, cloneCenter) {
+    const blocks = catBlocks(); let cum = 0;
+    for (let bi = 0; bi < blocks.length; bi++) {
+      const b = blocks[bi], cnt = b.rows.reduce((a, it) => a + (it.id == posDrag.vid ? 0 : 1), 0);
+      if (ins < cum + cnt) return { cid: b.cid, index: ins - cum };
+      if (ins === cum + cnt) {
+        const next = blocks[bi + 1];
+        if (!next) return { cid: b.cid, index: cnt };
+        const g = blockEl(b.cid), ng = blockEl(next.cid);
+        const midGap = ((g ? g.getBoundingClientRect().bottom : 0) + (ng ? ng.getBoundingClientRect().top : 0)) / 2;
+        return (cloneCenter < midGap) ? { cid: b.cid, index: cnt } : { cid: next.cid, index: 0 };
+      }
+      cum += cnt;
+    }
+    const last = blocks[blocks.length - 1]; return { cid: last.cid, index: last.rows.reduce((a, it) => a + (it.id == posDrag.vid ? 0 : 1), 0) };
+  }
+  const cidKey = (c) => (c == null ? "\u2205" : c);
+  function updateP() {
+    const D = posDrag; if (!D) return;
+    const dScroll = D.sc ? (D.sc.scrollTop - D.startScroll) : 0;
+    let top = D.lastY + D.cloneOffY;
+    const lt = D.listTop0 - dScroll, lb = D.listBottom0 - dScroll;
+    top = Math.max(lt, Math.min(Math.max(lt, lb - D.rowH), top));
+    D.clone.style.top = top + "px";
+    const cloneTop = top, cloneBottom = top + D.rowH;
+    let below = 0, above = 0;
+    D.orderedRows.forEach((o) => {
+      if (o.vid == D.vid) return; const mcn = o.mc0 - dScroll;
+      if (o.mc0 > D.draggedMc0) { if (cloneBottom > mcn) below++; }
+      else { if (cloneTop < mcn) above++; }
+    });
+    const N = Math.max(0, D.orderedRows.length - 1);
+    const ins = Math.max(0, Math.min(N, D.fromGlobalIdx + below - above));
+    const t = mapIns(ins, cloneTop + D.rowH / 2);
+    if (cidKey(t.cid) !== cidKey(D.dstCid) || t.index !== D.dstIndex) { D.dstCid = t.cid; D.dstIndex = t.index; flipP(() => placeP(t.cid, t.index)); }
+  }
+  function autoScrollP() {
+    const D = posDrag; if (!D || D.raf || !dragCanvas) return;
+    const EDGE = 56;
+    const step = () => {
+      if (!posDrag) return; const rr = dragCanvas.getBoundingClientRect(), yy = posDrag.lastY; let dd = 0;
+      if (yy < rr.top + EDGE) dd = -1; else if (yy > rr.bottom - EDGE) dd = 1;
+      if (dd === 0) { posDrag.raf = 0; return; }
+      const di = dd < 0 ? (rr.top + EDGE - yy) : (yy - (rr.bottom - EDGE)); const sp = Math.min(20, 4 + di / 2.4);
+      const before = dragCanvas.scrollTop; dragCanvas.scrollTop = Math.max(0, before + dd * sp);
+      if (dragCanvas.scrollTop !== before) { updateP(); posDrag.raf = requestAnimationFrame(step); } else posDrag.raf = 0;
+    };
+    posDrag.raf = requestAnimationFrame(step);
+  }
+  function onPKey(e) { if (e.key === "Escape" && posDrag) { e.preventDefault(); cancelP(); } }
+  function detachP() { window.removeEventListener("pointermove", onPMove); window.removeEventListener("pointerup", onPUp); window.removeEventListener("pointercancel", cancelP); window.removeEventListener("keydown", onPKey, true); }
+  function cleanupP() {
+    const D = posDrag; if (!D) return; if (D.raf) cancelAnimationFrame(D.raf);
+    try { D.clone.remove(); } catch (_) {} try { D.ph.remove(); } catch (_) {}
+    if (D.rowEl) D.rowEl.classList.remove("dragsrc");
+    $table.querySelectorAll(".prow, .ghead, .catadd, .srow, .totalrow").forEach((n) => { n.style.transition = ""; n.style.transform = ""; });
+    cxwrap.classList.remove("dragging");
+    posDrag = null;
+  }
+  function cancelP() { detachP(); cleanupP(); render(); }
+  async function onPUp() {
+    const D = posDrag; if (!D) return; detachP();
+    if (D.dstIndex < 0) { cleanupP(); render(); return; }   // reiner Klick ohne Ziehen
+    const cid = D.dstCid, index = D.dstIndex;
+    let items = data.contracts || [];
+    const it = items.find((x) => x.id == D.vid);
+    if (!it) { cleanupP(); render(); return; }
+    const changed = (it.category_id ?? null) !== (cid ?? null);
+    items = items.filter((x) => x.id != D.vid);
+    it.category_id = cid;
+    const cats = data.categories || [];
+    const byCat = new Map(); cats.forEach((c) => byCat.set(c.id, []));
+    const orphan = [];
+    items.forEach((x) => (byCat.has(x.category_id) ? byCat.get(x.category_id) : orphan).push(x));
+    const targetRows = cid == null ? orphan : (byCat.get(cid) || orphan);
+    targetRows.splice(Math.max(0, Math.min(targetRows.length, index)), 0, it);
+    const flat = []; cats.forEach((c) => (byCat.get(c.id) || []).forEach((x) => flat.push(x))); orphan.forEach((x) => flat.push(x));
+    data.contracts = flat;
+    cleanupP(); computeMetrics(); render();
+    try {
+      flushSoon.flush();
+      if (changed) await api.updateContract(it.id, { category_id: cid });
+      await api.reorderContracts(flat.map((x) => x.id));
+    } catch (e) { toast(e.message, true); refresh(); }
+  }
+
+  // --- Kategorien (echte Kategorien untereinander; „Ohne Kategorie" bleibt fix) ---
+  function onCatGrip(e) {
+    if (e.button != null && e.button !== 0) return;
+    const g = e.target.closest(".gclass"); if (!g || !g.dataset.cid) return;
+    startCatDrag(+g.dataset.cid, e);
+  }
+  function catZone() {
+    const gs = [...$table.querySelectorAll(".gclass[data-cid]")];
+    if (!gs.length) { const r = $table.getBoundingClientRect(); return { top: r.top, bottom: r.bottom }; }
+    return { top: gs[0].getBoundingClientRect().top, bottom: gs[gs.length - 1].getBoundingClientRect().bottom };
+  }
+  function startCatDrag(cid, e) {
+    const cats = data.categories || [];
+    if (cats.length < 2) return;
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    e.preventDefault();
+    const gEl = blockEl(cid); if (!gEl) return; const rect = gEl.getBoundingClientRect();
+    const clone = gEl.cloneNode(true); clone.classList.add("cclone");
+    clone.style.width = rect.width + "px"; clone.style.left = rect.left + "px"; clone.style.top = rect.top + "px";
+    cxwrap.appendChild(clone); cxwrap.classList.add("dragging");
+    gEl.style.visibility = "hidden";
+    const gels = {}, mc0 = {}; cats.forEach((cc) => { const g = blockEl(cc.id); gels[cc.id] = g; if (g) { const r = g.getBoundingClientRect(); mc0[cc.id] = (r.top + r.bottom) / 2; } });
+    const z = catZone();
+    catDrag = { cid, gEl, clone, gels, order0: cats.slice(), mc0, mcCid: mc0[cid], fromIndex: cats.findIndex((cc) => cc.id == cid),
+      blockH: rect.height, footprint: rect.height + 9, cloneOffY: rect.top - e.clientY,
+      listTop0: z.top, listBottom0: z.bottom, sc: dragCanvas, startScroll: dragCanvas ? dragCanvas.scrollTop : 0, lastY: e.clientY, toIndex: cats.findIndex((cc) => cc.id == cid), raf: 0 };
+    window.addEventListener("pointermove", onCMove);
+    window.addEventListener("pointerup", onCUp);
+    window.addEventListener("pointercancel", cancelC);
+    window.addEventListener("keydown", onCKey, true);
+    updateC();
+  }
+  function onCMove(e) { if (!catDrag) return; catDrag.lastY = e.clientY; updateC(); autoScrollC(); }
+  function updateC() {
+    const D = catDrag; if (!D) return;
+    const y = D.lastY, dScroll = D.sc ? (D.sc.scrollTop - D.startScroll) : 0;
+    let cloneTop = y + D.cloneOffY;
+    const lt = D.listTop0 - dScroll, lb = D.listBottom0 - dScroll;
+    cloneTop = Math.max(lt, Math.min(Math.max(lt, lb - D.blockH), cloneTop));
+    D.clone.style.top = cloneTop + "px";
+    const cloneBot = cloneTop + D.blockH;
+    let below = 0, above = 0;
+    D.order0.forEach((oc) => {
+      if (oc.id == D.cid) return; const mcn = D.mc0[oc.id] - dScroll;
+      if (D.mc0[oc.id] > D.mcCid) { if (cloneBot > mcn) below++; }
+      else { if (cloneTop < mcn) above++; }
+    });
+    const toIndex = D.fromIndex + below - above;
+    if (toIndex !== D.toIndex) { D.toIndex = toIndex; applyCatShift(); }
+  }
+  function applyCatShift() {
+    const D = catDrag; if (!D) return; const { order0, cid, fromIndex, toIndex, footprint } = D;
+    order0.forEach((oc, i) => {
+      if (oc.id == cid) return; let sh = 0;
+      if (toIndex > fromIndex) { if (i > fromIndex && i <= toIndex) sh = -footprint; }
+      else if (toIndex < fromIndex) { if (i >= toIndex && i < fromIndex) sh = footprint; }
+      const g = D.gels[oc.id]; if (g) { g.style.transition = "transform .16s ease"; g.style.transform = sh ? `translateY(${sh}px)` : ""; }
+    });
+  }
+  function autoScrollC() {
+    const D = catDrag; if (!D || D.raf || !dragCanvas) return;
+    const EDGE = 56;
+    const step = () => {
+      if (!catDrag) return; const rr = dragCanvas.getBoundingClientRect(), yy = catDrag.lastY; let dd = 0;
+      if (yy < rr.top + EDGE) dd = -1; else if (yy > rr.bottom - EDGE) dd = 1;
+      if (dd === 0) { catDrag.raf = 0; return; }
+      const di = dd < 0 ? (rr.top + EDGE - yy) : (yy - (rr.bottom - EDGE)); const sp = Math.min(20, 4 + di / 2.4);
+      const before = dragCanvas.scrollTop; dragCanvas.scrollTop = Math.max(0, before + dd * sp);
+      if (dragCanvas.scrollTop !== before) { updateC(); catDrag.raf = requestAnimationFrame(step); } else catDrag.raf = 0;
+    };
+    catDrag.raf = requestAnimationFrame(step);
+  }
+  function onCKey(e) { if (e.key === "Escape" && catDrag) { e.preventDefault(); cancelC(); } }
+  function detachC() { window.removeEventListener("pointermove", onCMove); window.removeEventListener("pointerup", onCUp); window.removeEventListener("pointercancel", cancelC); window.removeEventListener("keydown", onCKey, true); }
+  function cleanupC() {
+    const D = catDrag; if (!D) return; if (D.raf) cancelAnimationFrame(D.raf);
+    try { D.clone.remove(); } catch (_) {}
+    if (D.gEl) D.gEl.style.visibility = "";
+    D.order0.forEach((oc) => { const g = D.gels[oc.id]; if (g) { g.style.transition = ""; g.style.transform = ""; } });
+    cxwrap.classList.remove("dragging");
+    catDrag = null;
+  }
+  function cancelC() { detachC(); cleanupC(); render(); }
+  async function onCUp() {
+    const D = catDrag; if (!D) return; detachC();
+    const cats = data.categories || [];
+    const to = Math.max(0, Math.min(cats.length - 1, D.toIndex));
+    const cur = cats.findIndex((c) => c.id == D.cid);
+    const moved = cur !== to && cur >= 0;
+    if (moved) { const [m] = cats.splice(cur, 1); cats.splice(to, 0, m); }
+    cleanupC(); render();
+    if (!moved) return;
+    try { flushSoon.flush(); await api.reorderContractCategories(cats.map((c) => c.id)); }
+    catch (e) { toast(e.message, true); refresh(); }
   }
 
   function liveCatName(inp, id, v) {
@@ -406,15 +670,18 @@ function mount(root, ctx) {
   function viewerSideHTML(it) {
     return `<div class="sh" id="cxPdfSh">${esc(it.vendor)}${it.label ? " — " + esc(it.label) : ""}</div><div class="ss" id="cxPdfSs">Posten „${esc(it.posten_name)}" · ${fmtEUR(it.amount)} € ${it.interval === "monatlich" ? "mtl." : "jährl."} · kündigen bis ${it.anytime ? "jederzeit" : ddmmyy(it.stichtag)}</div>` + formFields(it);
   }
+  function applyViewerCat(it) { const box = pdf.querySelector(".cx-pdfbox"); if (box) box.style.setProperty("--cx-cat", catColor(it)); }
   function renderViewerSide(it) {
-    const side = pdf.querySelector("#cxPdfSide");
+    const side = pdf.querySelector("#cxPdfSideIn");
     side.innerHTML = viewerSideHTML(it);
     wireForm(side, it);
+    applyViewerCat(it);
   }
   function updateViewerHead(it) {
     const sh = pdf.querySelector("#cxPdfSh"), ss = pdf.querySelector("#cxPdfSs");
     if (sh) sh.innerHTML = `${esc(it.vendor)}${it.label ? " — " + esc(it.label) : ""}`;
     if (ss) ss.textContent = `Posten „${it.posten_name}" · ${fmtEUR(it.amount)} € ${it.interval === "monatlich" ? "mtl." : "jährl."} · kündigen bis ${it.anytime ? "jederzeit" : ddmmyy(it.stichtag)}`;
+    applyViewerCat(it);
   }
   function detailHeadHTML(it) {
     const col = catColor(it);
@@ -439,10 +706,14 @@ function mount(root, ctx) {
     det.innerHTML = detailHeadHTML(it) + `<div class="dbody" id="e_body"></div>`;
     const body = det.querySelector("#e_body");
     body.innerHTML = formFields(it);
-    const docsec = el("div", "docsec"); docsec.innerHTML = `<div class="dt"><span>Dokumente</span><span>${it.docs.length}</span></div>`;
+    const docsec = el("div", "docsec");
+    docsec.innerHTML = `<div class="dt"><span>Dokumente</span><span class="cnt">${it.docs.length}</span><span class="sp"></span><span class="fmmore" title="Mehr">⋯<div class="fmmenu"><button data-fmopen="1"><span class="mi">⚙</span> Dateiverwaltung öffnen…</button></div></span></div>`;
+    const more = docsec.querySelector(".fmmore"), menu = docsec.querySelector(".fmmenu");
+    more.addEventListener("click", (e) => { e.stopPropagation(); menu.classList.toggle("show"); });
+    menu.querySelector("[data-fmopen]").addEventListener("click", (e) => { e.stopPropagation(); menu.classList.remove("show"); openFileManager(); });
     it.docs.forEach((d) => {
       const doc = el("div", "doc");
-      doc.innerHTML = `<span class="fi">${(d.filename.split(".").pop() || "").slice(0, 4).toUpperCase() || "DOC"}</span><span class="fmeta"><div class="fn">${esc(d.filename)}</div><div class="fs">${fmtSize(d.size)}</div></span><span class="fx" data-del="${d.id}">✕</span>`;
+      doc.innerHTML = `<span class="fi">${(d.filename.split(".").pop() || "").slice(0, 4).toUpperCase() || "DOC"}</span><span class="fmeta"><div class="fn">${esc(d.filename)}</div><div class="fs">${fmtSize(d.size)}</div></span><span class="fx" data-del="${d.id}" title="Vom Vertrag lösen (→ Verwaist)">✕</span>`;
       doc.addEventListener("click", (e) => { if (e.target.dataset.del) delDoc(+e.target.dataset.del); else openPdf(d, it); });
       docsec.append(doc);
     });
@@ -451,6 +722,340 @@ function mount(root, ctx) {
     docsec.append(drop); body.append(docsec);
     $detail.append(det);
     wireForm(body, it);
+  }
+
+  /* ---------------- Dateiverwaltung (Stufe 5) — Modal + Liste ---------------- */
+  let fmScrim = null;
+  const fm = { docs: [], contracts: [], categories: [], mode: "cat", expanded: new Set(), editing: null, rmenu: null, active: null, dirty: false };
+  const fmCatColor = (catId) => { const c = (fm.categories || []).find((x) => x.id === catId); return c ? (c.color || "var(--accent)") : "var(--accent)"; };
+  const fmLabel = (c) => esc(c.vendor || "") + (c.label ? " — " + esc(c.label) : "");
+  const fmDownload = (url) => { const a = document.createElement("a"); a.href = url; a.rel = "noopener"; document.body.appendChild(a); a.click(); a.remove(); };
+  function fmConfirm(msg, okLabel = "Löschen") {
+    return new Promise((resolve) => {
+      const c = el("div", "cx-fmconfirm");
+      c.innerHTML = `<div class="box"><div class="msg"></div><div class="btns"><button class="cancel">Abbrechen</button><button class="ok">${esc(okLabel)}</button></div></div>`;
+      c.querySelector(".msg").textContent = msg;
+      fmScrim.querySelector(".cx-fm").appendChild(c);
+      const done = (v) => { c.remove(); resolve(v); };
+      c.addEventListener("click", (e) => { if (e.target === c) done(false); });
+      c.querySelector(".cancel").addEventListener("click", () => done(false));
+      c.querySelector(".ok").addEventListener("click", () => done(true));
+    });
+  }
+
+  function buildFmScrim() {
+    fmScrim = el("div", "cx-fmscrim");
+    fmScrim.innerHTML = `<div class="cx-fm"><div class="cx-fmhead"><h2>Dateiverwaltung</h2><span class="sp"></span><span class="db" id="cxFmDb"></span><span class="x" id="cxFmClose">✕</span></div>`
+      + `<div class="cx-fmbody">`
+      + `<div class="cx-fmview"><div class="cx-fmvhead" id="cxFmVHead"><span class="fn">Vorschau</span><span class="sp"></span></div><div class="cx-fmvbody empty" id="cxFmVBody"><div class="ph">Datei rechts anklicken,<br>um sie hier anzusehen.</div></div></div>`
+      + `<div class="cx-fmbar" id="cxFmBar" title="Liste ein-/ausklappen"><span class="knob"><span class="chev">›</span></span></div>`
+      + `<div class="cx-fmleft"><div class="cx-fmleft-in"><div class="cx-fmtools"><div class="seg"><button data-m="cat" class="on">Nach Kategorie</button><button data-m="all">Alle</button></div></div>`
+      + `<div class="cx-fmlist" id="cxFmList"></div>`
+      + `<div class="cx-fmfoot"><span class="sum" id="cxFmSum"></span><button class="btn" id="cxFmZip">⤓ Alle als ZIP</button><button class="btn danger" id="cxFmClean">Verwaiste löschen</button></div></div></div>`
+      + `</div></div>`;
+    document.body.appendChild(fmScrim);
+    fmScrim.addEventListener("click", (e) => { if (e.target === fmScrim) closeFileManager(); });
+    fmScrim.querySelector("#cxFmClose").addEventListener("click", closeFileManager);
+    fmScrim.querySelector("#cxFmBar").addEventListener("click", () => fmScrim.querySelector(".cx-fm").classList.toggle("collapsed"));
+    fmScrim.querySelectorAll(".seg button").forEach((b) => b.addEventListener("click", () => { fmScrim.querySelectorAll(".seg button").forEach((x) => x.classList.remove("on")); b.classList.add("on"); fm.mode = b.dataset.m; fmRenderList(); }));
+    fmScrim.querySelector("#cxFmZip").addEventListener("click", () => fmDownload(api.docsZipUrl()));
+    fmScrim.querySelector("#cxFmClean").addEventListener("click", fmCleanOrphans);
+    const list = fmScrim.querySelector("#cxFmList");
+    list.addEventListener("click", fmListClick);
+    list.addEventListener("keydown", fmListKey);
+    list.addEventListener("pointerdown", fmDragStart);
+  }
+  async function openFileManager() {
+    if (!fmScrim) buildFmScrim();
+    fmScrim.classList.add("show");
+    try {
+      const r = await api.docsAll();
+      fm.docs = r.docs || []; fm.contracts = r.contracts || []; fm.categories = r.categories || [];
+      fm.editing = null; fm.rmenu = null; fm.active = null;
+      fm.expanded = new Set([...fm.categories.map((c) => c.id), "orphan"]);
+      fmScrim.querySelector("#cxFmDb").textContent = "Datenbank: " + (r.db || "");
+      fmViewedId = undefined; fmRenderList();
+    } catch (e) { toast(e.message || "Laden fehlgeschlagen", true); }
+  }
+  function closeFileManager() { if (fmScrim) { fmScrim.classList.remove("show"); fmCloseMenus(); } fm.editing = null; }
+
+  function fmFrowHTML(d) {
+    const editing = fm.editing === d.id;
+    const meta = editing
+      ? `<div class="edit"><input id="cxFmRen" value="${esc(d.filename)}"><button class="ib ok" data-rok="${d.id}" title="Speichern">✓</button><button class="ib" data-rcancel="1" title="Abbrechen">✕</button></div>`
+      : `<div class="fn">${esc(d.filename)}</div><div class="lk">${d.vendor ? fmLabel(d) : "keine Verknüpfung"}</div>`;
+    const act = editing ? ""
+      : `<button class="ib" data-rn="${d.id}" title="Umbenennen">✎</button><button class="ib" data-menu="${d.id}" title="Mehr">⋯</button><div class="rmenu"><button data-dl="${d.id}"><span class="mi">⤓</span> Download</button><div class="sep"></div><button class="del" data-del="${d.id}"><span class="mi">🗑</span> Löschen</button></div>`;
+    const ext = (d.filename.split(".").pop() || "").slice(0, 4).toUpperCase() || "DOC";
+    return `<div class="frow${fm.active === d.id ? " active" : ""}" data-vid="${d.id}"><span class="grip" title="ziehen zum Umhängen / Sortieren">⠿</span><span class="fi"${editing ? "" : ` data-open="${d.id}"`}>${ext}</span><div class="meta"${editing ? "" : ` data-open="${d.id}"`}>${meta}</div>${editing ? "" : `<span class="sz">${fmtSize(d.size)}</span>`}<span class="act">${act}</span></div>`;
+  }
+  function fmCtrHTML(c) {
+    const items = fm.docs.filter((d) => d.contract_id === c.id);
+    return `<div class="ctr" data-ctr="${c.id}"><div class="ctrhead"><span class="cdot" style="background:${fmCatColor(c.category_id)}"></span>${fmLabel(c)}</div>${items.map(fmFrowHTML).join("")}<div class="ctr-empty">Noch keine Dokumente</div></div>`;
+  }
+  function fmGroupHTML(cat) {
+    const ctrs = fm.contracts.filter((c) => c.category_id === cat.id);
+    const total = fm.docs.filter((d) => ctrs.some((c) => c.id === d.contract_id)).length;
+    const open = fm.mode === "all" || fm.expanded.has(cat.id);
+    return `<div class="catgroup ${open ? "open" : ""}" style="--cat:${cat.color || "var(--accent)"}"><div class="cathead" data-grp="${cat.id}"><span class="dot"></span><span class="cn">${esc(cat.name)}</span><span class="cc">${total}</span><span class="chev">▸</span></div><div class="catfiles">${ctrs.map(fmCtrHTML).join("")}</div></div>`;
+  }
+  function fmOrphanHTML() {
+    const orph = fm.docs.filter((d) => d.contract_id == null);
+    const open = fm.mode === "all" || fm.expanded.has("orphan");
+    return `<div class="catgroup grouporphan ${open ? "open" : ""}" style="--cat:var(--negative)"><div class="cathead" data-grp="orphan"><span class="dot"></span><span class="cn">Verwaist</span><span class="cc">${orph.length}</span><span class="chev">▸</span></div><div class="catfiles"><div class="ctr" data-ctr="">${orph.map(fmFrowHTML).join("")}<div class="ctr-empty">Keine verwaisten Dokumente</div></div></div></div>`;
+  }
+  function fmRenderList() {
+    if (!fmScrim) return;
+    fmScrim.querySelector("#cxFmList").innerHTML = fm.categories.map(fmGroupHTML).join("") + fmOrphanHTML();
+    fmUpdateSummary();
+    fmRenderView();
+  }
+  function fmUpdateSummary() {
+    const orph = fm.docs.filter((d) => d.contract_id == null).length;
+    const total = fm.docs.reduce((a, d) => a + (d.size || 0), 0);
+    fmScrim.querySelector("#cxFmSum").innerHTML = `<b>${fm.docs.length}</b> Dateien · <b>${fmtSize(total)}</b> · <b>${orph}</b> verwaist`;
+    const cl = fmScrim.querySelector("#cxFmClean"); cl.textContent = `Verwaiste löschen${orph ? " (" + orph + ")" : ""}`; cl.disabled = !orph;
+  }
+  let fmViewedId;
+  function fmRenderView(force) {
+    if (!fmScrim) return;
+    if (!force && fmViewedId === fm.active) return;   // Guard: iframe nicht ohne Not neu laden (kein Flackern)
+    fmViewedId = fm.active;
+    const vh = fmScrim.querySelector("#cxFmVHead"), vb = fmScrim.querySelector("#cxFmVBody"), bar = fmScrim.querySelector(".cx-fmbar");
+    const d = fm.docs.find((x) => x.id === fm.active);
+    // Balken-Kachel in der Kategorie-Farbe der aktiven Datei
+    bar.classList.toggle("colored", !!d);
+    if (d) { const c = fm.contracts.find((x) => x.id === d.contract_id); bar.style.setProperty("--fm-cat", c ? fmCatColor(c.category_id) : "var(--accent)"); }
+    else bar.style.removeProperty("--fm-cat");
+    if (!d) { vh.innerHTML = `<span class="fn">Vorschau</span><span class="sp"></span>`; vb.className = "cx-fmvbody empty"; vb.innerHTML = `<div class="ph">Datei rechts anklicken,<br>um sie hier anzusehen.</div>`; return; }
+    const url = api.contractDocUrl(d.id);
+    vh.innerHTML = `<span class="fn">${esc(d.filename)}</span><span class="sp"></span><a href="${url}" target="_blank" rel="noopener">↗ In neuem Tab</a>`;
+    const ext = (d.filename.split(".").pop() || "").toLowerCase();
+    if (ext === "pdf") { vb.className = "cx-fmvbody"; vb.innerHTML = `<iframe src="${url}" title="${esc(d.filename)}"></iframe>`; }
+    else if (["png", "jpg", "jpeg", "webp", "gif", "bmp"].includes(ext)) { vb.className = "cx-fmvbody img"; vb.innerHTML = `<img src="${url}" alt="${esc(d.filename)}">`; }
+    else { vb.className = "cx-fmvbody empty"; vb.innerHTML = `<div class="ph">Für diesen Dateityp gibt es keine Vorschau.<br><a href="${url}" target="_blank" rel="noopener">↗ In neuem Tab öffnen</a></div>`; }
+  }
+
+  const fmRow = (id) => fmScrim.querySelector(`.frow[data-vid="${id}"]`);
+  const fmCloseMenus = () => fmScrim.querySelectorAll(".cx-fmlist .rmenu.show").forEach((m) => m.classList.remove("show"));
+  function fmToggleMenu(id) { const row = fmRow(id); if (!row) return; const m = row.querySelector(".rmenu"); const was = m.classList.contains("show"); fmCloseMenus(); if (!was) m.classList.add("show"); }
+  function fmSetActive(id) {
+    fmScrim.querySelectorAll(".frow.active").forEach((r) => r.classList.remove("active"));
+    fm.active = fm.active === id ? null : id;
+    if (fm.active) { const row = fmRow(fm.active); if (row) row.classList.add("active"); }
+    fmRenderView();   // nur hier wird die Vorschau (neu) geladen
+  }
+  // Änderungen live ins Vertrags-Detail spiegeln (Name / Entfernen), ohne F5
+  function fmSyncDetail(id, value) {
+    (data.contracts || []).forEach((c) => { const arr = c.docs || []; const i = arr.findIndex((x) => x.id === id); if (i >= 0) { if (value === null) arr.splice(i, 1); else arr[i].filename = value; } });
+    renderDetail();
+  }
+  function fmStartRename(id) {
+    fmCloseMenus(); fm.editing = id;
+    const row = fmRow(id), d = fm.docs.find((x) => x.id === id);
+    if (!row || !d) return;
+    row.outerHTML = fmFrowHTML(d);
+    const inp = fmScrim.querySelector("#cxFmRen");
+    if (inp) { inp.focus(); inp.select(); inp.addEventListener("input", () => fmRenameLive(id, inp.value)); }
+  }
+  function fmRenameLive(id, value) {
+    const d = fm.docs.find((x) => x.id === id); if (d) d.filename = value;
+    if (fm.active === id) { const fnEl = fmScrim.querySelector("#cxFmVHead .fn"); if (fnEl) fnEl.textContent = value; }
+    fmSyncDetail(id, value);   // Detail-Panel live (auch während des Tippens)
+  }
+  async function fmEndRename(id, save) {
+    const inp = fmScrim.querySelector("#cxFmRen"); const v = (inp && inp.value.trim()) || "";
+    fm.editing = null;
+    const d = fm.docs.find((x) => x.id === id);
+    if (save && v && d) { d.filename = v; fmSyncDetail(id, v); }
+    else if (d) { fmSyncDetail(id, d.filename); }   // Abbruch: alten Namen zurückspiegeln
+    const row = fmRow(id); if (row && d) row.outerHTML = fmFrowHTML(d);
+    try { const inp2 = fmScrim.querySelector("#cxFmRen"); if (inp2) inp2.blur(); } catch (_) {}
+    if (save && v) { try { await api.patchDoc(id, { filename: v }); } catch (e) { toast(e.message, true); } }
+  }
+  function fmListClick(e) {
+    const t = e.target, gh = t.closest(".cathead");
+    if (gh) { if (fm.mode === "cat") { const k = gh.dataset.grp; const key = k === "orphan" ? "orphan" : +k; fm.expanded.has(key) ? fm.expanded.delete(key) : fm.expanded.add(key); fmRenderList(); } return; }
+    if (t.dataset.rn) { fmStartRename(+t.dataset.rn); return; }
+    if (t.dataset.rok) { fmEndRename(+t.dataset.rok, true); return; }
+    if (t.dataset.rcancel) { if (fm.editing != null) fmEndRename(fm.editing, false); return; }
+    if (t.dataset.menu) { e.stopPropagation(); fmToggleMenu(+t.dataset.menu); return; }
+    if (t.dataset.dl) { fmCloseMenus(); fmDownload(api.docDownloadUrl(+t.dataset.dl)); return; }
+    if (t.dataset.del) { fmDelDoc(+t.dataset.del); return; }
+    const openEl = t.closest("[data-open]"); if (openEl && fm.editing == null) { fmSetActive(+openEl.dataset.open); return; }
+    fmCloseMenus();
+  }
+  function fmListKey(e) { if (e.target.id === "cxFmRen") { if (e.key === "Enter") fmEndRename(fm.editing, true); if (e.key === "Escape") fmEndRename(fm.editing, false); } }
+  async function fmDelDoc(id) {
+    fmCloseMenus();
+    if (!(await fmConfirm("Dieses Dokument endgültig löschen?"))) return;
+    fm.docs = fm.docs.filter((d) => d.id !== id);
+    const row = fmRow(id); if (row) row.remove();
+    if (fm.active === id) { fm.active = null; fmRenderView(); }
+    fmSyncDetail(id, null); fmUpdateSummary();
+    try { await api.deleteContractDoc(id); } catch (e) { toast(e.message, true); openFileManager(); }
+  }
+  async function fmCleanOrphans() {
+    const orph = fm.docs.filter((d) => d.contract_id == null);
+    if (!orph.length) return;
+    if (!(await fmConfirm(`Alle ${orph.length} verwaisten Dokumente endgültig löschen?`))) return;
+    orph.forEach((d) => { const r = fmRow(d.id); if (r) r.remove(); if (fm.active === d.id) { fm.active = null; fmRenderView(); } fmSyncDetail(d.id, null); });
+    fm.docs = fm.docs.filter((d) => d.contract_id != null); fmUpdateSummary();
+    try { await api.deleteOrphanDocs(); } catch (e) { toast(e.message, true); openFileManager(); }
+  }
+
+  // --- Drag: umhängen + sortieren — Engine wie Vermögen (Kanten-/50%-Trigger, mc0, mapIns, Autoscroll) ---
+  let fmDrag = null, fmRafScroll = 0;
+  function fmFlip(mut) {
+    const list = fmScrim.querySelector("#cxFmList");
+    const nodes = [...list.querySelectorAll(".frow:not(.dragghost), .ph, .ctrhead")];
+    const first = new Map(); nodes.forEach((n) => first.set(n, n.getBoundingClientRect().top));
+    mut();
+    nodes.forEach((n) => { n.style.transition = "none"; n.style.transform = ""; });
+    void list.offsetWidth;
+    nodes.forEach((n) => { const dy = first.get(n) - n.getBoundingClientRect().top; if (Math.abs(dy) > 0.5) n.style.transform = `translateY(${dy}px)`; });
+    requestAnimationFrame(() => nodes.forEach((n) => { if (n.style.transform) { n.style.transition = "transform .16s ease"; n.style.transform = ""; } }));
+  }
+  function fmDragStart(e) {
+    const g = e.target.closest(".grip"); if (!g || fm.editing != null) return;
+    const row = g.closest(".frow"); if (!row) return; e.preventDefault();
+    fmCloseMenus();
+    const list = fmScrim.querySelector("#cxFmList");
+    const id = +row.dataset.vid, rect = row.getBoundingClientRect(), h = rect.height;
+    // flache, geordnete Zeilenliste + Start-Mittelpunkte (VOR dem Ausblenden), nur sichtbare Zeilen
+    const orderedRows = [...list.querySelectorAll(".frow:not(.dragghost)")]
+      .map((r) => ({ id: +r.dataset.vid, ctr: r.closest(".ctr").dataset.ctr, rc: r.getBoundingClientRect() }))
+      .filter((o) => o.rc.height > 0)
+      .map((o) => ({ id: o.id, ctrId: o.ctr ? +o.ctr : null, mc0: (o.rc.top + o.rc.bottom) / 2 }));
+    const fromGlobalIdx = orderedRows.findIndex((o) => o.id === id);
+    const draggedMc0 = orderedRows[fromGlobalIdx] ? orderedRows[fromGlobalIdx].mc0 : (rect.top + rect.bottom) / 2;
+    const clone = row.cloneNode(true); clone.classList.add("fclone"); clone.classList.remove("active");
+    clone.style.width = rect.width + "px"; clone.style.left = rect.left + "px"; clone.style.top = rect.top + "px";
+    fmScrim.querySelector(".cx-fm").appendChild(clone);
+    const ph = document.createElement("div"); ph.className = "ph"; ph.style.height = h + "px";
+    row.after(ph); row.classList.add("dragghost");
+    fmScrim.querySelector(".cx-fm").classList.add("dragging");
+    // sichtbare Vertrags-Container in DOM-Reihenfolge (Kategorie -> Verträge, dann Verwaist) + Zeilenzahl ohne die gezogene
+    const containers = [...list.querySelectorAll(".ctr")]
+      .filter((c) => c.getBoundingClientRect().height > 0)
+      .map((c) => ({ el: c, ctrId: c.dataset.ctr ? +c.dataset.ctr : null, count: [...c.querySelectorAll(".frow:not(.dragghost)")].length }));
+    const slots = [...list.querySelectorAll(".frow:not(.dragghost), .ctr-empty, .ph")].map((s) => s.getBoundingClientRect()).filter((r) => r.height > 0);
+    const topLimit = slots.length ? Math.min(...slots.map((r) => r.top)) : list.getBoundingClientRect().top;
+    fmDrag = { id, clone, ph, h, offY: e.clientY - rect.top, cx: rect.left + rect.width / 2,
+      topLimit, startScroll: list.scrollTop, orderedRows, fromGlobalIdx, draggedMc0, containers,
+      lastY: e.clientY, dstKey: null, srcCtr: row.closest(".ctr").dataset.ctr, list };
+    window.addEventListener("pointermove", fmDragMove);
+    window.addEventListener("pointerup", fmDragUp);
+    window.addEventListener("keydown", fmDragKeyH, true);
+    fmDragMove(e);
+  }
+  // Untergrenze live = Unterkante der letzten sichtbaren Kategorie-Gruppe (transform-immun, führt nach)
+  function fmBotLimit(list) {
+    const groups = [...list.querySelectorAll(".catgroup")].map((g) => g.getBoundingClientRect()).filter((r) => r.height > 0);
+    return groups.length ? groups[groups.length - 1].bottom : list.getBoundingClientRect().bottom;
+  }
+  function fmPlaceP(container, index) {
+    const rows = [...container.querySelectorAll(".frow")].filter((r) => !r.classList.contains("dragghost") && r !== fmDrag.ph);
+    if (index >= rows.length) { const empty = container.querySelector(".ctr-empty"); if (empty) container.insertBefore(fmDrag.ph, empty); else container.appendChild(fmDrag.ph); }
+    else container.insertBefore(fmDrag.ph, rows[index]);
+  }
+  // globalen Einfüge-Index auf Vertrag+Position abbilden; leere Verträge per Geometrie am Ende auflösen
+  function fmMapIns(ins, cloneCenter) {
+    const cs = fmDrag.containers; let cum = 0;
+    for (let ci = 0; ci < cs.length; ci++) {
+      const cnt = cs[ci].count;
+      if (ins < cum + cnt) return { ci, index: ins - cum };            // mitten in den Zeilen dieses Vertrags
+      if (ins === cum + cnt) {                                          // Grenze am Ende von ci
+        let jSel = ci;
+        for (let j = ci; j < cs.length; j++) { if (cs[j].el.getBoundingClientRect().top <= cloneCenter) jSel = j; else break; }
+        return (jSel === ci) ? { ci, index: cnt } : { ci: jSel, index: 0 };   // Ende ci ODER Anfang eines (leeren) späteren Vertrags
+      }
+      cum += cnt;
+    }
+    return { ci: cs.length - 1, index: cs[cs.length - 1] ? cs[cs.length - 1].count : 0 };
+  }
+  function fmDragMove(e) {
+    if (!fmDrag) return;
+    const D = fmDrag, list = D.list;
+    if (e && e.clientY != null) D.lastY = e.clientY;
+    const dScroll = list.scrollTop - D.startScroll;
+    const listRect = list.getBoundingClientRect();
+    const contentTop = D.topLimit - dScroll, contentBottom = fmBotLimit(list);
+    const lt = Math.max(listRect.top, contentTop);        // nie über die sichtbare Listen-Oberkante
+    const lb = Math.min(listRect.bottom, contentBottom);  // nie unter die sichtbare Listen-Unterkante
+    let top = D.lastY - D.offY;
+    top = Math.max(lt, Math.min(Math.max(lt, lb - D.h), top));
+    D.clone.style.top = top + "px";                       // left fix = seitlich gesperrt
+    const cloneTop = top, cloneBottom = top + D.h, cloneCenter = top + D.h / 2;
+    let below = 0, above = 0;
+    D.orderedRows.forEach((o) => {
+      if (o.id === D.id) return; const mcn = o.mc0 - dScroll;
+      if (o.mc0 > D.draggedMc0) { if (cloneBottom > mcn) below++; }   // Unterkante über 50% der Zeile darunter
+      else { if (cloneTop < mcn) above++; }                          // Oberkante über 50% der Zeile darüber
+    });
+    const N = D.orderedRows.length - 1;
+    const ins = Math.max(0, Math.min(N, D.fromGlobalIdx + below - above));
+    const t = fmMapIns(ins, cloneCenter); const cont = D.containers[t.ci]; if (!cont) { fmAutoScroll(); return; }
+    const key = t.ci + "|" + t.index;
+    if (key !== D.dstKey) {
+      D.dstKey = key;
+      fmFlip(() => fmPlaceP(cont.el, t.index));
+      fmScrim.querySelectorAll(".ctr.dropok").forEach((x) => x.classList.remove("dropok")); cont.el.classList.add("dropok");
+    }
+    fmAutoScroll();
+  }
+  // Auto-Scroll: ruhige Randzone ~18% oben/unten, Tempo nach Eindringtiefe (wie assets.js)
+  function fmAutoScroll() {
+    if (!fmDrag || fmRafScroll) return;
+    const list = fmDrag.list;
+    const step = () => {
+      if (!fmDrag) { fmRafScroll = 0; return; }
+      const rr = list.getBoundingClientRect();
+      const EDGE = Math.min(Math.max(rr.height * 0.18, 72), 150);
+      const yy = fmDrag.lastY; let dd = 0;
+      if (yy < rr.top + EDGE) dd = -1; else if (yy > rr.bottom - EDGE) dd = 1;
+      if (dd === 0) { fmRafScroll = 0; return; }
+      const depth = dd < 0 ? (rr.top + EDGE - yy) : (yy - (rr.bottom - EDGE));
+      const sp = Math.min(10, 2 + depth / 6);
+      const max = list.scrollHeight - list.clientHeight, before = list.scrollTop;
+      list.scrollTop = Math.max(0, Math.min(max, before + dd * sp));
+      if (list.scrollTop !== before) { fmDragMove(); fmRafScroll = requestAnimationFrame(step); } else fmRafScroll = 0;
+    };
+    fmRafScroll = requestAnimationFrame(step);
+  }
+  function fmStopScroll() { if (fmRafScroll) { cancelAnimationFrame(fmRafScroll); fmRafScroll = 0; } }
+  function fmDragDetach() {
+    fmStopScroll();
+    window.removeEventListener("pointermove", fmDragMove); window.removeEventListener("pointerup", fmDragUp); window.removeEventListener("keydown", fmDragKeyH, true);
+  }
+  function fmDragKeyH(e) { if (e.key === "Escape" && fmDrag) { e.preventDefault(); fmDragDetach(); const d = fmDrag; fmDrag = null; fmScrim.querySelector(".cx-fm").classList.remove("dragging"); try { d.clone.remove(); } catch (_) {} try { d.ph.remove(); } catch (_) {} fmScrim.querySelectorAll(".ctr.dropok").forEach((x) => x.classList.remove("dropok")); fmRenderList(); } }
+  async function fmDragUp() {
+    fmDragDetach();
+    const d = fmDrag; fmDrag = null;
+    fmScrim.querySelector(".cx-fm").classList.remove("dragging");
+    const order = [];
+    fmScrim.querySelectorAll(".cx-fmlist .ctr").forEach((ctr) => {
+      const cid = ctr.dataset.ctr ? +ctr.dataset.ctr : null;
+      [...ctr.children].forEach((ch) => {
+        if (ch === d.ph) order.push({ id: d.id, cid });
+        else if (ch.classList.contains("frow") && !ch.classList.contains("dragghost")) order.push({ id: +ch.dataset.vid, cid });
+      });
+    });
+    d.clone.remove(); d.ph.remove();
+    fmScrim.querySelectorAll(".ctr.dropok").forEach((x) => x.classList.remove("dropok"));
+    const oldCid = d.srcCtr ? +d.srcCtr : null;
+    const target = order.find((o) => o.id === d.id); const newCid = target ? target.cid : oldCid;
+    const byId = new Map(fm.docs.map((x) => [x.id, x]));
+    fm.docs = order.map((o, i) => { const dd = byId.get(o.id); if (dd) { dd.contract_id = o.cid; dd.sort = i; } return dd; }).filter(Boolean);
+    const moved = fm.docs.find((x) => x.id === d.id);
+    if (moved) { const c = fm.contracts.find((x) => x.id === moved.contract_id); moved.vendor = c ? c.vendor : null; moved.label = c ? c.label : null; moved.category_id = c ? c.category_id : null; }
+    fmRenderList();
+    const changed = (oldCid ?? null) !== (newCid ?? null);
+    try {
+      if (changed) await api.patchDoc(d.id, { contract_id: newCid });
+      await api.reorderDocs(order.map((o) => o.id));
+      if (changed) refresh();   // Dokument wechselt Vertrag -> Vertrags-Detail neu laden
+    } catch (e) { toast(e.message, true); openFileManager(); }
   }
 
   /* ---------------- Dokumente ---------------- */
@@ -464,13 +1069,14 @@ function mount(root, ctx) {
     };
     fileInput.click();
   }
-  async function delDoc(id) { try { await api.deleteContractDoc(id); await refresh(); } catch (e) { toast(e.message, true); } }
+  async function delDoc(id) { try { await api.patchDoc(id, { contract_id: null }); await refresh(); } catch (e) { toast(e.message, true); } }
   function openPdf(d, it) {
     pdf.querySelector("#cxPdfTitle").textContent = d.filename;
     const tab = pdf.querySelector("#cxPdfTab"); tab.href = d.url; tab.style.display = "";
     const main = pdf.querySelector("#cxPdfMain");
     main.innerHTML = d.viewable ? `<iframe src="${d.url}"></iframe>` : `<div class="cx-pdfph"><div class="big">${(d.filename.split(".").pop() || "").slice(0, 4).toUpperCase()}</div><div><b>${esc(d.filename)}</b><br>Nicht im Viewer anzeigbar – über „In neuem Tab" öffnen.</div></div>`;
     renderViewerSide(it);
+    pdf.querySelector(".cx-pdfbox").classList.toggle("collapsed", !!ui.pdfCollapsed);
     ui.openDoc = { docId: d.id, posten_id: it.posten_id }; saveUi();
     pdf.classList.add("show");
   }
@@ -547,10 +1153,15 @@ function mount(root, ctx) {
   refresh().catch((e) => { toast(e.message, true); render(); });
 
   return { unmount() {
+    if (posDrag) { detachP(); cleanupP(); }
+    if (catDrag) { detachC(); cleanupC(); }
     document.removeEventListener("click", onDocClick);
     document.removeEventListener("keydown", onFocusModeKey, true);
     window.removeEventListener("beforeunload", flushBeacon);
-    rmenu.remove(); overlay.remove(); pdf.remove(); fileInput.remove(); vendorList.remove(); root.innerHTML = "";
+    rmenu.remove(); overlay.remove(); pdf.remove(); fileInput.remove(); vendorList.remove();
+    if (fmDrag) { fmDragDetach(); try { fmDrag.clone.remove(); fmDrag.ph.remove(); } catch (_) {} fmDrag = null; }
+    if (fmScrim) fmScrim.remove();
+    root.innerHTML = "";
   } };
 }
 

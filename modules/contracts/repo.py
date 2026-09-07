@@ -245,12 +245,10 @@ def reorder_contracts(conn, ids):
 def delete_contract(conn, cid):
     """Entfernt nur das Vertragsprofil – der Posten bleibt im Haushalt.
 
-    Räumt die verschlüsselten Dateien mit weg (die DB-Kaskade löscht nur die
-    Metadaten-Zeilen).
+    Die angehängten Dokumente werden NICHT gelöscht: durch ON DELETE SET NULL
+    (Schema v10) verlieren sie nur ihre Vertrags-Verknüpfung und landen als
+    'verwaist' in der Dateiverwaltung, von wo sie neu zugeordnet werden können.
     """
-    from modules.contracts import storage
-    for d in conn.execute("SELECT stored_name FROM contract_docs WHERE contract_id=?", (cid,)).fetchall():
-        storage.delete(d["stored_name"])
     conn.execute("DELETE FROM contracts WHERE id=?", (cid,))
     conn.commit()
 
@@ -297,3 +295,75 @@ def delete_doc(conn, doc_id):
     conn.execute("DELETE FROM contract_docs WHERE id=?", (doc_id,))
     conn.commit()
     return r["stored_name"] if r else None
+
+
+# ---- Dateiverwaltung (alle Dokumente der aktiven DB) ----------------------
+def list_contracts_brief(conn):
+    """Schlanke Vertrags-Liste (auch ohne Dokumente) für die Gruppierung/Drop-Ziele."""
+    rows = conn.execute(
+        "SELECT id, vendor_enc, label_enc, category_id, sort FROM contracts ORDER BY category_id, sort, id"
+    ).fetchall()
+    return [{"id": r["id"], "vendor": crypto.decrypt(r["vendor_enc"]),
+             "label": crypto.decrypt(r["label_enc"]) if r["label_enc"] else None,
+             "category_id": r["category_id"], "sort": r["sort"]} for r in rows]
+
+
+def list_all_docs(conn):
+    """Alle Dokumente der DB mit Vertrags-/Kategorie-Zuordnung.
+
+    contract_id NULL = verwaist (Vertrag/Posten wurde gelöscht). Nach Vertrag
+    gruppierbar; verwaiste ans Ende.
+    """
+    rows = conn.execute("""
+        SELECT d.id, d.contract_id, d.filename_enc, d.stored_name, d.size, d.sort,
+               c.vendor_enc, c.label_enc, c.category_id, c.posten_id
+        FROM contract_docs d
+        LEFT JOIN contracts c ON c.id = d.contract_id
+        ORDER BY (d.contract_id IS NULL), d.contract_id, d.sort, d.id
+    """).fetchall()
+    out = []
+    for r in rows:
+        out.append({
+            "id": r["id"], "contract_id": r["contract_id"],
+            "filename": crypto.decrypt(r["filename_enc"]),
+            "stored_name": r["stored_name"], "size": r["size"], "sort": r["sort"],
+            "vendor": crypto.decrypt(r["vendor_enc"]) if r["vendor_enc"] else None,
+            "label": crypto.decrypt(r["label_enc"]) if r["label_enc"] else None,
+            "category_id": r["category_id"], "posten_id": r["posten_id"],
+        })
+    return out
+
+
+def rename_doc(conn, doc_id, filename):
+    name = (filename or "").strip() or "Dokument"
+    conn.execute("UPDATE contract_docs SET filename_enc=? WHERE id=?", (crypto.encrypt(name), doc_id))
+    conn.commit()
+
+
+def move_doc(conn, doc_id, contract_id):
+    """Hängt ein Dokument um (contract_id=None => verwaist). Landet am Ende des Ziels."""
+    if contract_id is not None and not conn.execute(
+            "SELECT id FROM contracts WHERE id=?", (contract_id,)).fetchone():
+        raise ValueError("Vertrag nicht gefunden.")
+    nxt = conn.execute(
+        "SELECT COALESCE(MAX(sort)+1,0) AS s FROM contract_docs WHERE contract_id IS ?",
+        (contract_id,)).fetchone()["s"]
+    conn.execute("UPDATE contract_docs SET contract_id=?, sort=? WHERE id=?",
+                 (contract_id, nxt, doc_id))
+    conn.commit()
+
+
+def reorder_docs(conn, ids):
+    """Setzt die Sortierung anhand der übergebenen id-Reihenfolge (z. B. innerhalb eines Vertrags)."""
+    for i, did in enumerate(ids or []):
+        conn.execute("UPDATE contract_docs SET sort=? WHERE id=?", (i, int(did)))
+    conn.commit()
+
+
+def delete_orphan_docs(conn):
+    """Löscht alle verwaisten Dokumente (contract_id NULL); liefert die stored_names zur Datei-Löschung."""
+    rows = conn.execute("SELECT stored_name FROM contract_docs WHERE contract_id IS NULL").fetchall()
+    names = [r["stored_name"] for r in rows]
+    conn.execute("DELETE FROM contract_docs WHERE contract_id IS NULL")
+    conn.commit()
+    return names

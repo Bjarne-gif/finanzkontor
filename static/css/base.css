@@ -226,6 +226,7 @@ body {
 .statusbar {
   display: flex; align-items: center; gap: 18px;
   padding: 0 20px;
+  position: relative; z-index: 50;
   font-family: var(--font-num); font-size: 12px;
   color: var(--text-faint);
   background: var(--surface);

@@ -69,6 +69,13 @@ export const api = {
   reorderContractCategories:(ids)   => req("POST", "/api/contracts/category/reorder", { ids }),
   deleteContractDoc:(docId)         => req("DELETE", `/api/contracts/doc/${docId}`),
   contractDocUrl:   (docId)         => `/api/contracts/doc/${docId}`,
+  // Dateiverwaltung
+  docsAll:          ()              => req("GET",  "/api/contracts/docs"),
+  patchDoc:         (docId, patch)  => req("PATCH", `/api/contracts/doc/${docId}`, patch),
+  reorderDocs:      (ids)           => req("POST", "/api/contracts/docs/reorder", { ids }),
+  deleteOrphanDocs: ()              => req("DELETE", "/api/contracts/docs/orphans"),
+  docDownloadUrl:   (docId)         => `/api/contracts/doc/${docId}/download`,
+  docsZipUrl:       ()              => `/api/contracts/docs/zip`,
   // Upload braucht FormData statt JSON:
   uploadContractDoc: async (cid, file) => {
     const fd = new FormData();

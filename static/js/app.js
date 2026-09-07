@@ -157,6 +157,9 @@ function switchTab(id) {
   renderModules(state);
 }
 
+// Reiter-Wechsel per Event-Bus (z. B. Vertrags-Symbol im Haushalt -> Verträge-Ansicht)
+bus.on("tab:go", (id) => { try { switchTab(id); } catch (_) {} });
+
 async function renderModules(state) {
   const mountEl = $("#modules");
   // vorheriges Panel sauber abbauen

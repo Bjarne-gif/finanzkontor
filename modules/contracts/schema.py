@@ -97,3 +97,27 @@ def migrate_v9(conn):
     for r in rows:
         conn.execute("UPDATE posten SET active=0 WHERE id=?", (r["posten_id"],))
     conn.execute("UPDATE contracts SET status='aktiv' WHERE status='pausiert'")
+
+
+def migrate_v10(conn):
+    """Dokumente überleben das Löschen ihres Vertrags/Postens als 'verwaist'.
+
+    contract_docs.contract_id wird nullable und die Kaskade von ON DELETE CASCADE
+    auf ON DELETE SET NULL umgestellt. Wird ein Vertrag (oder via Ledger-Kaskade
+    der Posten) gelöscht, bleibt die Datei erhalten und ihr contract_id wird NULL
+    (= verwaist, in der Dateiverwaltung wieder zuordenbar). SQLite kann Spalten
+    nicht ändern -> Tabelle neu aufbauen und Daten übernehmen."""
+    conn.execute("""
+        CREATE TABLE contract_docs_new (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            contract_id  INTEGER REFERENCES contracts(id) ON DELETE SET NULL,
+            filename_enc TEXT NOT NULL,
+            stored_name  TEXT NOT NULL,
+            size         INTEGER NOT NULL DEFAULT 0,
+            sort         INTEGER NOT NULL DEFAULT 0,
+            created_at   TEXT
+        )""")
+    conn.execute("""INSERT INTO contract_docs_new(id,contract_id,filename_enc,stored_name,size,sort,created_at)
+                    SELECT id,contract_id,filename_enc,stored_name,size,sort,created_at FROM contract_docs""")
+    conn.execute("DROP TABLE contract_docs")
+    conn.execute("ALTER TABLE contract_docs_new RENAME TO contract_docs")
