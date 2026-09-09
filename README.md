@@ -36,7 +36,7 @@ verwaisen statt zu verschwinden, wenn ein Vertrag entfernt wird.
 
 ```bash
 git clone https://github.com/Bjarne-gif/finanzkontor.git
-cd finanzkontor
+cd finanzkontor/
 cp .env.example .env      # bei Bedarf anpassen (Port, DATA_DIR)
 docker compose up -d --build
 ```
@@ -47,6 +47,7 @@ Passwort fest.
 Um den Container sauber zu löschen:
 
 ```bash
+cd finanzkontor/
 docker compose down
 docker compose down -v --rmi all
 cd ..
