@@ -55,11 +55,8 @@ sudo rm -rf finanzkontor/
 Status in Docker überprüfen:
 
 ```bash
-# Zeigt alle Container an (auch gestoppte)
-docker ps -a
-
-# Zeigt die Live-Ressourcennutzung (CPU/RAM) an
-docker stats
+docker ps -a      # Zeigt alle Container an (auch gestoppte)
+docker stats      # Zeigt die Live-Ressourcennutzung (CPU/RAM) an
 ```
 ### Lokal ohne Docker (z. B. direkt auf dem Raspberry Pi)
 
