@@ -35,8 +35,10 @@ verwaisen statt zu verschwinden, wenn ein Vertrag entfernt wird.
 ## Schnellstart (Docker)
 
 ```bash
+git clone https://github.com/Bjarne-gif/finanzkontor.git
+cd finanzkontor
 cp .env.example .env      # bei Bedarf anpassen (Port, DATA_DIR)
-docker compose up -d
+docker compose up -d --build
 ```
 
 Dann im Browser: `http://<host>:8000`. Beim ersten Start legst du dein
