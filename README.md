@@ -48,12 +48,19 @@ Um den Container sauber zu löschen:
 
 ```bash
 cd finanzkontor
-docker compose down
 docker compose down -v --rmi all
 cd ..
 sudo rm -rf finanzkontor/
 ```
+Status in Docker überprüfen:
 
+```bash
+# Zeigt alle Container an (auch gestoppte)
+docker ps -a
+
+# Zeigt die Live-Ressourcennutzung (CPU/RAM) an
+docker stats
+```
 ### Lokal ohne Docker (z. B. direkt auf dem Raspberry Pi)
 
 Empfohlen mit virtueller Umgebung (venv) – hält die Abhängigkeiten sauber vom
