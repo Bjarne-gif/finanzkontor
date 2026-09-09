@@ -44,6 +44,15 @@ docker compose up -d --build
 Dann im Browser: `http://<host>:8000`. Beim ersten Start legst du dein
 Passwort fest.
 
+Um den Container sauber zu löschen:
+
+```bash
+docker compose down
+docker compose down -v --rmi all
+cd ..
+sudo rm -rf finanzkontor/
+```
+
 ### Lokal ohne Docker (z. B. direkt auf dem Raspberry Pi)
 
 Empfohlen mit virtueller Umgebung (venv) – hält die Abhängigkeiten sauber vom
