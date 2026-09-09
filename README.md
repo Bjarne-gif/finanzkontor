@@ -44,6 +44,12 @@ docker compose up -d --build
 Dann im Browser: `http://<host>:8000`. Beim ersten Start legst du dein
 Passwort fest.
 
+Status in Docker überprüfen:
+
+```bash
+docker ps -a      # Zeigt alle Container an (auch gestoppte)
+docker stats      # Zeigt die Live-Ressourcennutzung (CPU/RAM) an
+```
 Um den Container sauber zu löschen:
 
 ```bash
@@ -52,12 +58,7 @@ docker compose down -v --rmi all
 cd ..
 sudo rm -rf finanzkontor/
 ```
-Status in Docker überprüfen:
 
-```bash
-docker ps -a      # Zeigt alle Container an (auch gestoppte)
-docker stats      # Zeigt die Live-Ressourcennutzung (CPU/RAM) an
-```
 ### Lokal ohne Docker (z. B. direkt auf dem Raspberry Pi)
 
 Empfohlen mit virtueller Umgebung (venv) – hält die Abhängigkeiten sauber vom
