@@ -34,6 +34,8 @@ verwaisen statt zu verschwinden, wenn ein Vertrag entfernt wird.
 
 ## Schnellstart (Docker)
 
+App in Docker installieren:
+
 ```bash
 git clone https://github.com/Bjarne-gif/finanzkontor.git
 cd finanzkontor
