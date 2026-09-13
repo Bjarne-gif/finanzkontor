@@ -103,9 +103,8 @@ function mount(root, ctx) {
   const overlay = el("div", "cx-overlay"); overlay.innerHTML = `<div class="cx-modal" id="cxModal"></div>`;
   const pdf = el("div", "cx-pdfscrim");
   pdf.innerHTML = `<div class="cx-pdfbox"><div class="cx-pdfhead"><span class="pt" id="cxPdfTitle"></span><a id="cxPdfTab" target="_blank" href="#" style="display:none">↗ In neuem Tab</a><span class="px" id="cxPdfClose">✕</span></div><div class="cx-pdfcontent"><div class="cx-pdfmain" id="cxPdfMain"></div><div class="cx-pdfbar" id="cxPdfBar" title="Konfigspalte ein-/ausklappen"><span class="knob"><span class="chev">›</span></span></div><div class="cx-pdfside" id="cxPdfSide"><div class="cx-pdfside-in" id="cxPdfSideIn"></div></div></div></div>`;
-  const vendorList = el("datalist"); vendorList.id = "cxVendors";
   const fileInput = el("input"); fileInput.type = "file"; fileInput.accept = ".pdf,image/*,.doc,.docx,.txt,.odt,.xls,.xlsx"; fileInput.style.display = "none";
-  document.body.append(rmenu, overlay, pdf, fileInput, vendorList);
+  document.body.append(rmenu, overlay, pdf, fileInput);
   const modal = overlay.querySelector("#cxModal");
   const closeMenu = () => rmenu.classList.remove("show");
   const closeOverlay = () => overlay.classList.remove("show");
@@ -129,6 +128,14 @@ function mount(root, ctx) {
   const $kpi = root.querySelector("#cxKpi"), $table = root.querySelector("#cxTable"), $detail = root.querySelector("#cxDetail");
 
   async function refresh() { data = await api.contractsState(); (data.contracts || []).forEach((c) => { if (c.raw_status === undefined) c.raw_status = c.status === "gekündigt" ? "gekündigt" : "aktiv"; }); render(); }
+  // Leichter Hintergrund-Refresh: aktualisiert Kacheln + Tabelle live, ohne das offene Modal/Detail zu stören
+  async function refreshBg() {
+    try {
+      data = await api.contractsState();
+      (data.contracts || []).forEach((c) => { if (c.raw_status === undefined) c.raw_status = c.status === "gekündigt" ? "gekündigt" : "aktiv"; });
+      renderKpi(); renderTable();
+    } catch (_) {}
+  }
   const today = () => (data.today ? parseISO(data.today) : new Date());
   // lokale Neuberechnung eines Vertrags (Stichtag/Status/effektiv aktiv) – wie das Backend
   function recompute(c) {
@@ -153,10 +160,10 @@ function mount(root, ctx) {
     data.metrics = {
       count_active: counting.length,
       cost: { monthly: round2(sumM), yearly: round2(sumY) },
-      next_deadline: next ? { vendor: next.vendor, posten_id: next.posten_id, stichtag: next.stichtag, days: next.days_to_stichtag } : null,
+      next_deadline: next ? { vendor: next.partner_name, posten_id: next.posten_id, stichtag: next.stichtag, days: next.days_to_stichtag } : null,
       action_needed: { total: missed.length + endingSoon.length, missed: missed.length, ending_soon: endingSoon.length },
       savings_potential: { count: candidates.length, monthly: round2(potM), yearly: round2(potM * 12) },
-      upcoming: upcoming.slice(0, 8).map((c) => ({ vendor: c.vendor, posten_id: c.posten_id, stichtag: c.stichtag, days: c.days_to_stichtag })),
+      upcoming: upcoming.slice(0, 8).map((c) => ({ vendor: c.partner_name, posten_id: c.posten_id, stichtag: c.stichtag, days: c.days_to_stichtag })),
     };
   }
   // Cursor beim Tab-Fokus ans Ende (nichts markiert -> nichts wird versehentlich überschrieben)
@@ -184,7 +191,7 @@ function mount(root, ctx) {
     grid.append(
       tile("count", "", "Bestand", `${m.count_active ?? 0}`, "aktive Verträge"),
       tile("warn", handeln ? "alert" : "ok", "Handlungsbedarf", `${handeln}`, handeln ? `${act.missed || 0} verpasst · ${act.ending_soon || 0} bald` : "alles im Blick"),
-      tile("next", "wide hero", "Nächste Kündigungsfrist", next ? `${next.days}<span class="u">Tage</span>` : "—", next ? `${esc(next.vendor)} · kündigen bis ${ddmmyy(next.stichtag)}` : "keine anstehende Frist"),
+      tile("next", "wide hero", "Nächste Kündigungsfrist", next ? `${next.days}<span class="u">Tage</span>` : "—", next ? `${next.vendor ? esc(next.vendor) + " · " : ""}kündigen bis ${ddmmyy(next.stichtag)}` : "keine anstehende Frist"),
       tile("cost", "wide", "Kosten", `${fmtEUR(cost.monthly)}<span class="cur">€/Mon.</span>`, `${fmtEUR(cost.yearly)} € pro Jahr`),
       tile("save", "wide", "Sparpotenzial", `${fmtEUR(save.monthly)}<span class="cur">€/Mon.</span>`, `${save.count || 0} Kündigungskandidaten`),
     );
@@ -192,12 +199,14 @@ function mount(root, ctx) {
     lt.innerHTML = `<div class="tlbl">Kündigen bis (spätestens)</div>`;
     const up = m.upcoming || [];
     if (!up.length) lt.insertAdjacentHTML("beforeend", `<div class="nr"><span class="nn" style="color:var(--text-faint)">keine anstehenden Fristen</span></div>`);
-    const labelOf = (posten_id) => { const c = (data.contracts || []).find((x) => x.posten_id === posten_id); return c && c.label ? " — " + c.label : ""; };
+    const labelOf = (posten_id) => { const c = (data.contracts || []).find((x) => x.posten_id === posten_id); return c && c.label ? c.label : ""; };
     up.slice(0, 5).forEach((o) => {
       const col = o.days <= 21 ? "var(--negative)" : o.days <= 45 ? "var(--accent)" : "var(--text-faint)";
       const cd = o.days <= 45 ? `in ${o.days} T.` : `in ${Math.round(o.days / 30)} Mon.`;
       const nr = el("div", "nr");
-      nr.innerHTML = `<span class="nd" style="color:${col}">${ddmmyy(o.stichtag).slice(0, 6)}</span><span class="nn">${esc(o.vendor)}${esc(labelOf(o.posten_id))}</span><span class="nc" style="color:${col}">${cd}</span>`;
+      const nm = o.vendor, lb = labelOf(o.posten_id);
+      const title = nm && lb ? esc(nm) + " — " + esc(lb) : esc(nm || lb);
+      nr.innerHTML = `<span class="nd" style="color:${col}">${ddmmyy(o.stichtag).slice(0, 6)}</span><span class="nn">${title}</span><span class="nc" style="color:${col}">${cd}</span>`;
       nr.addEventListener("click", (e) => { e.stopPropagation(); ui.selId = o.posten_id; saveUi(); render(); });
       lt.append(nr);
     });
@@ -215,7 +224,8 @@ function mount(root, ctx) {
     const d = it.days_to_stichtag, u = d <= 21 ? "due" : d <= 45 ? "soon" : "calm";
     return `<span class="kd">${ddmmyy(it.stichtag)}</span><span class="chip ${u}">${d <= 45 ? "in " + d + " T." : "in " + Math.round(d / 30) + " Mon."}</span>`;
   };
-  const nameLine = (it) => `${esc(it.vendor)}${it.label ? " — " + esc(it.label) : ""} <span class="pn">· ${esc(it.posten_name)}</span>`;
+  const titleOf = (it) => { const nm = esc(it.partner_name), lb = it.label ? esc(it.label) : ""; return nm && lb ? nm + " — " + lb : (nm || lb); };
+  const nameLine = (it) => `${titleOf(it)} <span class="pn">· ${esc(it.posten_name)}</span>`;
   const subLine = (it) => {
     if (it.status === "pausiert") return it.pause_until ? `pausiert bis ${ddmmyy(it.pause_until)}` : "inaktiv (pausiert)";
     if (it.status === "gekündigt") return it.effective_active ? `gekündigt · läuft bis ${it.anytime ? "Monatsende" : ddmmyy(it.end)}` : "gekündigt · beendet";
@@ -267,8 +277,8 @@ function mount(root, ctx) {
         const ca = el("div", "catadd"); ca.innerHTML = `<span class="lab">＋ Vertrag hinzufügen</span>`;
         ca.addEventListener("click", () => openContractDialog(cat.id, false)); g.append(ca);
       }
-      // Summenzeile nur wenn Verträge drin
-      if (rows.length) {
+      // Summenzeile: bei echten Kategorien immer (auch leer → 0,00 €), bei „ohne Kategorie" nur wenn Verträge da
+      if (cat || rows.length) {
         const cRows = rows.filter((it) => it.effective_active);
         const sM = cRows.reduce((a, it) => a + it.monthly, 0), sY = cRows.reduce((a, it) => a + it.yearly, 0);
         const srow = el("div", "srow");
@@ -379,11 +389,14 @@ function mount(root, ctx) {
       const b = blocks[bi], cnt = b.rows.reduce((a, it) => a + (it.id == posDrag.vid ? 0 : 1), 0);
       if (ins < cum + cnt) return { cid: b.cid, index: ins - cum };
       if (ins === cum + cnt) {
-        const next = blocks[bi + 1];
-        if (!next) return { cid: b.cid, index: cnt };
-        const g = blockEl(b.cid), ng = blockEl(next.cid);
-        const midGap = ((g ? g.getBoundingClientRect().bottom : 0) + (ng ? ng.getBoundingClientRect().top : 0)) / 2;
-        return (cloneCenter < midGap) ? { cid: b.cid, index: cnt } : { cid: next.cid, index: 0 };
+        // wie fmMapIns: letzten Block ab bi finden, dessen Box-Oberkante über der Klon-Mitte liegt
+        // -> auch leere Kategorien (echte Box-Höhe) sind ansteuerbar, kein Hängenbleiben mehr
+        let jSel = bi;
+        for (let j = bi; j < blocks.length; j++) {
+          const bg = blockEl(blocks[j].cid);
+          if (bg && bg.getBoundingClientRect().top <= cloneCenter) jSel = j; else break;
+        }
+        return (jSel === bi) ? { cid: b.cid, index: cnt } : { cid: blocks[jSel].cid, index: 0 };
       }
       cum += cnt;
     }
@@ -601,25 +614,71 @@ function mount(root, ctx) {
   }
 
   /* ---------------- Detail + Dokumente ---------------- */
+  // ---- Vertragspartner-Auswahl (natives Dropdown statt Datalist-Vorblendung) ----
+  // Muster wie „Gehört zu Haushaltsposten": bestehenden Partner wählen ODER „➕ neu anlegen"
+  // (dann Textfeld). Bei gesetztem Partner ist das Neu-Feld mit dem aktuellen Namen
+  // vorbefüllt (Tippfehler korrigieren). Backend unberührt – Partner bleibt reiner vendor-Text.
+  function vendorNames() {
+    return [...new Set((data.contracts || []).map((c) => c.vendor).filter(Boolean))]
+      .sort((a, b) => a.localeCompare(b, "de"));
+  }
+  function vendorPickerHTML(current) {
+    const cur = (current || "").trim();
+    const names = vendorNames();
+    if (cur && !names.includes(cur)) names.push(cur);
+    names.sort((a, b) => a.localeCompare(b, "de"));
+    const none = names.length === 0;   // gar keine Partner -> direkt in den „neu anlegen"-Modus
+    const opts = names.map((n) => `<option${n === cur ? " selected" : ""}>${esc(n)}</option>`).join("");
+    const ph = cur ? "" : `<option value=""${none ? "" : " selected"} disabled>Partner wählen …</option>`;
+    return `<div class="vpick">
+      <select class="vpick-sel">${ph}${opts}<option value="__new"${none ? " selected" : ""}>➕ Neuen Vertragspartner anlegen …</option></select>
+      <div class="vpick-new"${none ? "" : " hidden"}><input class="vpick-in" placeholder="Name des Partners" value="${esc(cur)}"></div>
+    </div>`.replace(/\n\s+/g, "");
+  }
+  function readVendor(scope) {
+    const p = scope.querySelector(".vpick");
+    if (!p) return "";
+    const sel = p.querySelector(".vpick-sel");
+    if (sel.value === "__new") return (p.querySelector(".vpick-in").value || "").trim();
+    return sel.value === "" ? "" : sel.value;
+  }
+  // opts: { onLive?, onFlush?, live? } – im Detail-Panel live, im Anlegen-Dialog nur Auslesen bei Submit
+  function wireVendorPicker(scope, opts = {}) {
+    const p = scope.querySelector(".vpick");
+    if (!p) return;
+    const sel = p.querySelector(".vpick-sel"), nw = p.querySelector(".vpick-new"), inp = p.querySelector(".vpick-in");
+    const showNew = (on) => { nw.hidden = !on; if (on) setTimeout(() => { try { inp.focus(); inp.select(); } catch (_) {} }, 0); };
+    sel.addEventListener("change", () => {
+      if (sel.value === "__new") { showNew(true); if (opts.onLive) opts.onLive(); }
+      else { showNew(false); if (opts.onLive) opts.onLive(); if (opts.onFlush) opts.onFlush(); }
+    });
+    if (opts.live && opts.onLive) inp.addEventListener("input", opts.onLive);
+    if (opts.onFlush) inp.addEventListener("blur", opts.onFlush);
+  }
+
+  function partnerSelectHTML(it) {
+    const opts = (data.partners || []).map((p) => `<option value="${p.id}"${p.id === it.partner_id ? " selected" : ""}>${esc(p.name)}</option>`).join("");
+    return `<select id="e_partner"><option value="">— kein Partner —</option>${opts}</select>`;
+  }
+
   function formFields(it) {
     const catOpts = (data.categories || []).map((c) => `<option value="${c.id}" ${c.id === it.category_id ? "selected" : ""}>${esc(c.name)}</option>`).join("");
-    return `<div class="frow"><div class="fld"><label>Vertragspartner</label><input id="e_vendor" list="cxVendors" value="${esc(it.vendor)}"></div>
-      <div class="fld"><label>Vertragsbezeichnung</label><input id="e_label" value="${esc(it.label || "")}" placeholder="z. B. Prime"></div></div>
+    return `<div class="frow"><div class="fld"><label>Vertragsbezeichnung</label><input id="e_label" value="${esc(it.label || "")}" placeholder="z. B. Prime"></div>
+      <div class="fld"><label>Vertragspartner</label>${partnerSelectHTML(it)}</div></div>
       <div class="fld"><label>Kategorie</label><select id="e_cat"><option value="">— ohne —</option>${catOpts}</select></div>
+      <div class="fld"><label>Haushaltsposten (Zuordnung ändern)</label><select id="e_posten"><option value="${it.posten_id}" selected>${esc(it.posten_name)} (aktuell)</option>${(data.linkable || []).map((p) => `<option value="${p.id}">${esc(p.name)} · ${esc(p.category || "")}</option>`).join("")}</select></div>
       <div class="fld"><label>Vertragsende (leer = jederzeit kündbar)</label><input class="mono" id="e_ende" value="${it.anytime ? "" : ddmmyy(it.end_date)}" placeholder="TT.MM.JJJJ"></div>
       <div class="frow"><div class="fld"><label>Kündigungsfrist</label><div class="unitrow"><input type="number" min="0" id="e_fn" value="${it.anytime ? "" : it.notice_n}"><select id="e_fu">${UNITS.map((u) => `<option ${it.notice_unit === u ? "selected" : ""}>${u}</option>`).join("")}</select></div></div>
       <div class="fld"><label>Verlängert um</label><div class="unitrow"><input type="number" min="0" id="e_vn" value="${it.renew_n || ""}"><select><option>Monate</option></select></div></div></div>
       <div class="frow"><div class="fld"><label>Status</label><select id="e_status"><option ${it.status === "aktiv" ? "selected" : ""}>aktiv</option><option ${it.status === "pausiert" ? "selected" : ""}>pausiert</option><option ${it.status === "gekündigt" ? "selected" : ""}>gekündigt</option></select></div>
       <div class="fld"><label>Kündigungskandidat</label><select id="e_flag"><option ${it.candidate ? "selected" : ""}>ja</option><option ${!it.candidate ? "selected" : ""}>nein</option></select></div></div>
-      <div class="fld" id="e_pausewrap" style="${it.status === "pausiert" ? "" : "display:none"}"><label>Pausiert bis (leer = unbegrenzt)</label><input class="mono" id="e_pause" value="${ddmmyy(it.pause_until)}" placeholder="TT.MM.JJJJ"></div>
-      <div class="savehint">Änderungen werden automatisch gespeichert.</div>`;
+      <div class="fld" id="e_pausewrap" style="${it.status === "pausiert" ? "" : "display:none"}"><label>Pausiert bis (leer = unbegrenzt)</label><input class="mono" id="e_pause" value="${ddmmyy(it.pause_until)}" placeholder="TT.MM.JJJJ"></div>`;
   }
   // Live-Bearbeitung: sofort lokal neu rechnen + Tabelle/Kopf aktualisieren (kein Flackern),
   // Backend-Speichern läuft optimistisch im Hintergrund (debounced).
   function wireForm(scope, it) {
     const g = (id) => scope.querySelector("#" + id);
     const readInto = () => {
-      it.vendor = g("e_vendor").value.trim();
       it.label = g("e_label").value.trim();
       it.category_id = g("e_cat").value ? +g("e_cat").value : null;
       const endRaw = g("e_ende").value.trim();
@@ -636,7 +695,7 @@ function mount(root, ctx) {
     };
     const saveBackend = () => {
       pending.contracts[it.id] = {
-        vendor: it.vendor, label: it.label, category_id: it.category_id,
+        label: it.label, category_id: it.category_id,
         end_date: it.end_date ? ddmmyy(it.end_date) : "", anytime: it.anytime,
         notice_n: it.notice_n, notice_unit: it.notice_unit, renew_n: it.renew_n,
         candidate: it.candidate, status: it.raw_status,
@@ -662,13 +721,29 @@ function mount(root, ctx) {
     };
     // Text/Zahl live beim Tippen; Datum + Selects beim Ändern/Verlassen
     const flush = () => flushSoon.flush();
-    ["e_vendor", "e_label", "e_fn", "e_vn"].forEach((id) => { const e = g(id); if (e) { e.addEventListener("input", live); e.addEventListener("blur", flush); cursorEnd(e); } });
+    const psel = g("e_partner");
+    if (psel) psel.addEventListener("change", () => {
+      const pid = psel.value ? +psel.value : null;
+      it.partner_id = pid;
+      it.partner_name = pid ? ((data.partners || []).find((p) => p.id === pid) || {}).name || "" : "";
+      computeMetrics(); renderKpi(); renderTable(); updateDetailHead(it);
+      document.querySelectorAll("#e_partner").forEach((s) => { s.value = psel.value; });   // Detail + Viewer synchron
+      api.setContractPartner(it.id, pid).catch((e) => toast(e.message, true));
+    });
+    const posSel = g("e_posten");
+    if (posSel) posSel.addEventListener("change", async () => {
+      const npid = +posSel.value;
+      if (npid === it.posten_id) return;
+      try { await api.moveContractPosten(it.id, npid); ui.selId = npid; saveUi(); await refresh(); }
+      catch (e) { toast(e.message, true); posSel.value = it.posten_id; }
+    });
+    ["e_label", "e_fn", "e_vn"].forEach((id) => { const e = g(id); if (e) { e.addEventListener("input", live); e.addEventListener("blur", flush); cursorEnd(e); } });
     ["e_ende", "e_pause"].forEach((id) => { const e = g(id); if (e) { cursorEnd(e); e.addEventListener("blur", flush); } });
     ["e_ende", "e_pause", "e_cat", "e_fu", "e_status", "e_flag"].forEach((id) => { const e = g(id); if (e) e.addEventListener("change", () => { live(); flush(); }); });
   }
   // nur den Detail-Kopf aktualisieren (Body/Felder bleiben -> Fokus & Eingabe unberührt)
   function viewerSideHTML(it) {
-    return `<div class="sh" id="cxPdfSh">${esc(it.vendor)}${it.label ? " — " + esc(it.label) : ""}</div><div class="ss" id="cxPdfSs">Posten „${esc(it.posten_name)}" · ${fmtEUR(it.amount)} € ${it.interval === "monatlich" ? "mtl." : "jährl."} · kündigen bis ${it.anytime ? "jederzeit" : ddmmyy(it.stichtag)}</div>` + formFields(it);
+    return `<div class="sh" id="cxPdfSh">${titleOf(it)}</div><div class="ss" id="cxPdfSs">Posten „${esc(it.posten_name)}" · ${fmtEUR(it.amount)} € ${it.interval === "monatlich" ? "mtl." : "jährl."} · kündigen bis ${it.anytime ? "jederzeit" : ddmmyy(it.stichtag)}</div>` + formFields(it);
   }
   function applyViewerCat(it) { const box = pdf.querySelector(".cx-pdfbox"); if (box) box.style.setProperty("--cx-cat", catColor(it)); }
   function renderViewerSide(it) {
@@ -679,13 +754,13 @@ function mount(root, ctx) {
   }
   function updateViewerHead(it) {
     const sh = pdf.querySelector("#cxPdfSh"), ss = pdf.querySelector("#cxPdfSs");
-    if (sh) sh.innerHTML = `${esc(it.vendor)}${it.label ? " — " + esc(it.label) : ""}`;
+    if (sh) sh.innerHTML = `${titleOf(it)}`;
     if (ss) ss.textContent = `Posten „${it.posten_name}" · ${fmtEUR(it.amount)} € ${it.interval === "monatlich" ? "mtl." : "jährl."} · kündigen bis ${it.anytime ? "jederzeit" : ddmmyy(it.stichtag)}`;
     applyViewerCat(it);
   }
   function detailHeadHTML(it) {
     const col = catColor(it);
-    return `<div class="dhead" id="e_dhead" style="background:color-mix(in srgb, ${col} 16%, var(--surface-2))"><div class="dvendor">${esc(it.vendor)}${it.label ? " — " + esc(it.label) : ""}</div><div class="dposten">Posten „${esc(it.posten_name)}" · ${fmtEUR(it.amount)} € ${it.interval === "monatlich" ? "mtl." : "jährl."}</div><div class="dkuend">Kündigen bis <b style="color:var(--text)">${it.anytime ? "jederzeit" : ddmmyy(it.stichtag)}</b> ${statusChipInline(it)}</div></div>`;
+    return `<div class="dhead" id="e_dhead" style="background:color-mix(in srgb, ${col} 16%, var(--surface-2))"><div class="dvendor">${titleOf(it)}</div><div class="dposten">Posten „${esc(it.posten_name)}" · ${fmtEUR(it.amount)} € ${it.interval === "monatlich" ? "mtl." : "jährl."}</div><div class="dkuend">Kündigen bis <b style="color:var(--text)">${it.anytime ? "jederzeit" : ddmmyy(it.stichtag)}</b> ${statusChipInline(it)}</div></div>`;
   }
   function updateDetailHead(it) {
     const det = $detail.querySelector(".detail"); if (!det) return;
@@ -705,9 +780,12 @@ function mount(root, ctx) {
     const det = el("div", "detail"); det.style.borderColor = col;
     det.innerHTML = detailHeadHTML(it) + `<div class="dbody" id="e_body"></div>`;
     const body = det.querySelector("#e_body");
-    body.innerHTML = formFields(it);
+    const vhead = `<div class="docsec vsec"><div class="dt"><span>Vertragliches</span><span class="sp"></span><button class="fmbtn vmanage" style="--cat:${col}" title="Vertragspartner verwalten"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.3"/><path d="M5 20a7 7 0 0 1 14 0"/></svg></span>Verwaltung</button></div></div>`;
+    body.innerHTML = vhead + formFields(it);
+    body.querySelector(".vmanage").addEventListener("click", () => openPartnerManager(it.partner_id || null));
     const docsec = el("div", "docsec");
-    docsec.innerHTML = `<div class="dt"><span>Dokumente</span><span class="cnt">${it.docs.length}</span><span class="sp"></span><button class="fmbtn" style="--cat:${col}" title="Dateiverwaltung öffnen"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7.5a1.8 1.8 0 0 1 1.8-1.8h3.2l1.8 1.8h6.4A1.8 1.8 0 0 1 20 9.3v7.4a1.8 1.8 0 0 1-1.8 1.8H5.8A1.8 1.8 0 0 1 4 16.7V7.5Z"/></svg></span>Verwaltung</button></div>`;
+    docsec.innerHTML = `<div class="dt"><span>Dokumente</span><span class="cnt">${it.docs.length}</span><span class="sp"></span>`
+      + `<button class="fmbtn" style="--cat:${col}" title="Dateiverwaltung öffnen"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7.5a1.8 1.8 0 0 1 1.8-1.8h3.2l1.8 1.8h6.4A1.8 1.8 0 0 1 20 9.3v7.4a1.8 1.8 0 0 1-1.8 1.8H5.8A1.8 1.8 0 0 1 4 16.7V7.5Z"/></svg></span>Verwaltung</button></div>`;
     docsec.querySelector(".fmbtn").addEventListener("click", (e) => { e.stopPropagation(); openFileManager(); });
     it.docs.forEach((d) => {
       const doc = el("div", "doc");
@@ -766,6 +844,7 @@ function mount(root, ctx) {
   async function openFileManager() {
     if (!fmScrim) buildFmScrim();
     fmScrim.classList.add("show");
+    ui.fmOpen = true; saveUi();
     try {
       const r = await api.docsAll();
       fm.docs = r.docs || []; fm.contracts = r.contracts || []; fm.categories = r.categories || [];
@@ -775,7 +854,7 @@ function mount(root, ctx) {
       fmViewedId = undefined; fmRenderList();
     } catch (e) { toast(e.message || "Laden fehlgeschlagen", true); }
   }
-  function closeFileManager() { if (fmScrim) { fmScrim.classList.remove("show"); fmCloseMenus(); } fm.editing = null; }
+  function closeFileManager() { if (fmScrim) { fmScrim.classList.remove("show"); fmCloseMenus(); } fm.editing = null; ui.fmOpen = false; saveUi(); }
 
   function fmFrowHTML(d) {
     const editing = fm.editing === d.id;
@@ -1092,13 +1171,17 @@ function mount(root, ctx) {
       <div id="n_new" class="hbox" style="display:${linkable.length ? "none" : "block"}"><div class="hbox-title">Neuer Haushaltsposten</div><div class="fld"><label>Bezeichnung Haushaltsposten</label><input id="n_name" placeholder="z. B. Zeitung"></div><div class="frow"><div class="fld"><label>Betrag</label><input class="mono" id="n_amount" placeholder="0,00"></div><div class="fld" style="max-width:120px"><label>Intervall</label><select id="n_iv"><option value="monatlich">monatlich</option><option value="jaehrlich">jährlich</option></select></div></div>
         <div class="fld"><label>Haushalts-Kategorie (Kosten)</label><select id="n_hcat">${ledgerCats.map((c)=>`<option value="${c.id}">${esc(c.name)}</option>`).join("")}<option value="__newh">➕ Neue Haushalts-Kategorie …</option></select></div>
         <div class="fld" id="n_hcatwrap" style="display:${ledgerCats.length ? "none" : "block"}"><label>Name der Haushalts-Kategorie</label><input id="n_hcatname" value="Fixe Kosten"></div></div>
-      <div class="fld"><label>Vertragspartner</label><input id="n_vendor" list="cxVendors" placeholder="z. B. Telekom"></div>
+      <div class="fld"><label>Gehört zu Vertragspartner</label><select id="n_partner"><option value="">— kein Partner —</option>${(data.partners || []).map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join("")}<option value="__new">➕ Neuen Vertragspartner anlegen …</option></select></div>
+      <div id="n_pnew" class="hbox" style="display:none"><div class="hbox-title">Neuer Vertragspartner</div><div class="fld"><label>Name / Firmenbezeichnung</label><input id="n_pname" placeholder="z. B. Vodafone GmbH"></div></div>
       <div class="fld"><label>Vertragsende (leer = jederzeit)</label><input class="mono" id="n_ende" placeholder="TT.MM.JJJJ"></div>
       <div class="frow"><div class="fld"><label>Kündigungsfrist</label><div class="unitrow"><input type="number" min="0" id="n_fn" placeholder="3"><select id="n_fu"><option>Monate</option><option>Wochen</option></select></div></div><div class="fld"><label>Verlängert um</label><div class="unitrow"><input type="number" min="0" id="n_vn" value="12"><select><option>Monate</option></select></div></div></div>
       <div class="mbtns"><button class="cancel">Abbrechen</button><button class="save">Vertrag anlegen</button></div>`;
     const sel = modal.querySelector("#n_posten");
     const toggleNew = () => { modal.querySelector("#n_new").style.display = (sel.value === "__new" || !linkable.length) ? "block" : "none"; };
     sel.addEventListener("change", toggleNew); toggleNew();
+    const psel2 = modal.querySelector("#n_partner");
+    const togglePNew = () => { modal.querySelector("#n_pnew").style.display = psel2.value === "__new" ? "block" : "none"; };
+    psel2.addEventListener("change", togglePNew); togglePNew();
     wireAmt(modal.querySelector("#n_amount"));
     const hsel = modal.querySelector("#n_hcat");
     if (hsel) { const th = () => { modal.querySelector("#n_hcatwrap").style.display = (hsel.value === "__newh" || !ledgerCats.length) ? "block" : "none"; }; hsel.addEventListener("change", th); th(); }
@@ -1123,7 +1206,14 @@ function mount(root, ctx) {
           const res = await api.addPosten({ category_id: hcatId, name, amount, interval: modal.querySelector("#n_iv").value });
           posten_id = res && res.id;
         } else posten_id = +sel.value;
-        await api.addContract({ posten_id, category_id: catId || null, vendor: (modal.querySelector("#n_vendor").value || "").trim(), end_date: modal.querySelector("#n_ende").value.trim(), anytime: !modal.querySelector("#n_ende").value.trim(), notice_n: parseInt(modal.querySelector("#n_fn").value) || 0, notice_unit: modal.querySelector("#n_fu").value, renew_n: parseInt(modal.querySelector("#n_vn").value) || 0 });
+        let partnerId = modal.querySelector("#n_partner").value;
+        if (partnerId === "__new") {
+          const pname = (modal.querySelector("#n_pname").value || "").trim();
+          if (!pname) { toast("Name des Vertragspartners fehlt.", true); return; }
+          const rp = await api.addPartner({ name: pname });
+          partnerId = rp.id;
+        } else partnerId = partnerId ? +partnerId : null;
+        await api.addContract({ posten_id, category_id: catId || null, partner_id: partnerId, end_date: modal.querySelector("#n_ende").value.trim(), anytime: !modal.querySelector("#n_ende").value.trim(), notice_n: parseInt(modal.querySelector("#n_fn").value) || 0, notice_unit: modal.querySelector("#n_fu").value, renew_n: parseInt(modal.querySelector("#n_vn").value) || 0 });
         ui.selId = posten_id; saveUi(); closeOverlay(); await refresh();
       } catch (e) { toast(e.message, true); }
     });
@@ -1143,12 +1233,149 @@ function mount(root, ctx) {
     const d = it && (it.docs || []).find((x) => x.id === ui.openDoc.docId);
     if (it && d) openPdf(d, it); else { ui.openDoc = null; saveUi(); }
   }
-  function updateVendorList() {
-    const names = [...new Set((data.contracts || []).map((c) => c.vendor).filter(Boolean))].sort();
-    vendorList.innerHTML = names.map((n) => `<option value="${esc(n)}">`).join("");
-  }
-  function render() { updateVendorList(); renderKpi(); renderTable(); renderDetail(); restorePdf(); }
+  function restoreFm() { if (ui.fmOpen && !(fmScrim && fmScrim.classList.contains("show"))) openFileManager(); }
+  function restorePm() { if (ui.pmOpen && !(pmScrim && pmScrim.classList.contains("show"))) openPartnerManager(ui.pmSelId || null); }
+  function render() { renderKpi(); renderTable(); renderDetail(); restorePdf(); restoreFm(); restorePm(); }
   refresh().catch((e) => { toast(e.message, true); render(); });
+
+  // ==== Vertragspartner-Verwaltung (Modal, wie Dateiverwaltung) ============
+  let pmScrim = null;
+  const pm = { partners: [], suggest: { ptypes: [], branches: [] }, selId: null };
+  const PM_MULTI = (t) => t === "Adresse" || t === "Freitext";
+  const PM_FTYPES = ["Text", "Zahl", "Datum", "E-Mail", "URL", "Telefon", "Adresse", "Freitext"];
+  const pmSaveT = {};
+
+  function buildPmScrim() {
+    pmScrim = el("div", "cx-pmscrim");
+    pmScrim.innerHTML =
+      `<div class="cx-pm"><div class="cx-pmhead">`
+      + `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/></svg>`
+      + `<h2>Vertragspartner</h2><span class="sp"></span><span class="x" id="cxPmClose">✕</span></div>`
+      + `<div class="cx-pmbody"><div class="cx-pmlist"><div class="cx-pmlh"><span class="t">Partner</span><span class="add" id="cxPmNew">＋ Neu</span></div>`
+      + `<div id="cxPmList"></div></div><div class="cx-pmdetail" id="cxPmDetail"></div></div></div>`;
+    document.body.appendChild(pmScrim);
+    pmScrim.addEventListener("click", (e) => { if (e.target === pmScrim) closePartnerManager(); });
+    pmScrim.querySelector("#cxPmClose").addEventListener("click", closePartnerManager);
+    pmScrim.querySelector("#cxPmNew").addEventListener("click", pmCreate);
+  }
+  async function openPartnerManager(preselect) {
+    if (!pmScrim) buildPmScrim();
+    pmScrim.classList.add("show");
+    if (preselect) pm.selId = preselect;
+    ui.pmOpen = true; ui.pmSelId = pm.selId || null; saveUi();
+    await pmLoad();
+  }
+  function closePartnerManager() { if (pmScrim) pmScrim.classList.remove("show"); ui.pmOpen = false; saveUi(); refresh().catch(() => {}); }
+  async function pmLoad() {
+    try { const r = await api.partnersState(); pm.partners = r.partners || []; pm.suggest = r.suggest || { ptypes: [], branches: [] }; }
+    catch (e) { toast(e.message, true); return; }
+    if ((!pm.selId || !pm.partners.some((p) => p.id === pm.selId)) && pm.partners.length) pm.selId = pm.partners[0].id;
+    ui.pmSelId = pm.selId || null; saveUi();
+    pmRenderList(); pmRenderDetail();
+  }
+  async function pmCreate() {
+    // eindeutigen Platzhalter-Namen finden, damit direkt (ohne Zwischenfeld) angelegt werden kann
+    const names = new Set(pm.partners.map((p) => (p.name || "").toLowerCase()));
+    let base = "Neuer Partner", name = base, n = 2;
+    while (names.has(name.toLowerCase())) name = `${base} ${n++}`;
+    try {
+      const r = await api.addPartner({ name });
+      pm.selId = r.id;
+      await pmLoad();
+      const nmf = pmScrim.querySelector("#cxPmName");
+      if (nmf) { nmf.focus(); try { nmf.select(); } catch (_) {} }
+    } catch (e) { toast(e.message, true); }
+  }
+  function pmRenderList() {
+    const wrap = pmScrim.querySelector("#cxPmList");
+    const chev = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>`;
+    const row = (p) => `<div class="cx-pmrow${p.id === pm.selId ? " sel" : ""}" data-id="${p.id}">`
+      + `<span class="av" style="background:${p.color || "var(--surface-3)"}">${esc((p.name[0] || "?").toUpperCase())}</span>`
+      + `<span class="meta"><div class="nm">${esc(p.name)}</div><div class="mi">${esc(p.branch) || (p.contract_count ? "" : "ohne Zuordnung")}</div></span>`
+      + `<span class="chev">${chev}</span></div>`;
+    const withC = pm.partners.filter((p) => p.contract_count > 0), without = pm.partners.filter((p) => !p.contract_count);
+    let html = "";
+    if (withC.length) html += `<div class="grp">Mit Verträgen</div>` + withC.map(row).join("");
+    if (without.length) html += `<div class="grp">Ohne Verträge</div>` + without.map(row).join("");
+    if (!pm.partners.length) html = `<div class="cx-pmempty">Noch keine Partner. Über „＋ Neu“ anlegen.</div>`;
+    wrap.innerHTML = html;
+    wrap.querySelectorAll(".cx-pmrow").forEach((r) => r.addEventListener("click", () => { pm.selId = +r.dataset.id; ui.pmSelId = pm.selId; saveUi(); pmRenderList(); pmRenderDetail(); }));
+  }
+  function pmFieldHTML(f) {
+    const val = PM_MULTI(f.ftype)
+      ? `<textarea class="grow" data-fid="${f.id}" placeholder="—">${esc(f.value)}</textarea>`
+      : `<input data-fid="${f.id}" value="${esc(f.value)}" placeholder="—">`;
+    const label = f.is_core ? esc(f.label)
+      : `<input class="lbl" data-flabel="${f.id}" value="${esc(f.label)}" placeholder="Feldname eingeben …">`;
+    return `<div class="fld${PM_MULTI(f.ftype) ? " wide" : ""}"><label>${label}<span class="tp">${esc(f.ftype)}</span>`
+      + (f.is_core ? "" : `<span class="del" data-fdel="${f.id}" title="Feld entfernen">✕</span>`) + `</label>${val}</div>`;
+  }
+  function pmRenderDetail() {
+    const box = pmScrim.querySelector("#cxPmDetail");
+    const p = pm.partners.find((x) => x.id === pm.selId);
+    if (!p) { box.innerHTML = `<div class="cx-pmempty">Keinen Partner ausgewählt.</div>`; return; }
+    const tOpts = [...new Set(["Unternehmen", "Dienstleister", "Privatperson / Vermieter", "Versicherung", "Bank / Finanzen", "Behörde", ...pm.suggest.ptypes])];
+    const bOpts = [...new Set(["Telekommunikation", "Energie", "Versicherung", "Bank / Finanzen", "Vermietung", "Öffentlich", "Sonstiges", ...pm.suggest.branches])];
+    const sel = (opts, cur) => `<option value=""${cur ? "" : " selected"}>—</option>` + opts.map((o) => `<option${o === cur ? " selected" : ""}>${esc(o)}</option>`).join("");
+    const cts = (p.contracts && p.contracts.length)
+      ? p.contracts.map((c) => `<div class="cc"><span class="cd" style="background:${p.color}"></span><span class="cn">${esc(c.name)}${c.sub ? `<div class="csub">${esc(c.sub)}</div>` : ""}</span></div>`).join("")
+      : `<div class="cc-empty">Diesem Partner ist aktuell kein Vertrag zugeordnet.</div>`;
+    box.innerHTML = `<div class="detail-in"><div class="dhead"><div class="bigav" style="background:${p.color}">${esc((p.name[0] || "?").toUpperCase())}</div>`
+      + `<div class="ht"><input class="nm-edit" id="cxPmName" value="${esc(p.name)}" placeholder="Name / Firmenbezeichnung">`
+      + `<div class="stamm"><select id="cxPmType">${sel(tOpts, p.ptype)}</select><select id="cxPmBranch">${sel(bOpts, p.branch)}</select>`
+      + `<button class="pm-del" id="cxPmDel" title="Partner löschen">Löschen</button></div></div></div>`
+      + `<div class="fgrid">${(p.fields || []).map(pmFieldHTML).join("")}</div>`
+      + `<div class="addfield" id="cxPmAddField">＋ Eigenes Feld hinzufügen</div>`
+      + `<div class="typemenu" id="cxPmTypes">` + PM_FTYPES.map((t) => `<span class="tp" data-nt="${t}">${t}</span>`).join("") + `</div>`
+      + `<div class="cx-pmcontracts"><div class="ph">Verträge dieses Partners</div>${cts}</div></div>`;
+    pmWireDetail(p);
+  }
+  function pmGrow(t) { t.style.height = "auto"; t.style.height = (t.scrollHeight + 2) + "px"; t.style.overflow = "hidden"; }
+  function pmWireDetail(p) {
+    const box = pmScrim.querySelector("#cxPmDetail");
+    const nm = box.querySelector("#cxPmName"), av = box.querySelector(".bigav");
+    nm.addEventListener("input", () => {
+      const newName = nm.value.trim();
+      av.textContent = (newName[0] || "?").toUpperCase();
+      // sofort lokal aktualisieren (live, kein Server-Reload)
+      p.name = newName;
+      const dp = (data.partners || []).find((x) => x.id === p.id); if (dp) dp.name = newName;
+      (data.contracts || []).forEach((c) => { if (c.partner_id === p.id) c.partner_name = newName; });
+      computeMetrics(); renderKpi(); renderTable(); pmRenderList();
+      // Detail-Panel (im Hintergrund): Kopf + Partner-Dropdown-Option
+      const act = (data.contracts || []).find((c) => c.posten_id === ui.selId);
+      if (act) updateDetailHead(act);
+      document.querySelectorAll("#e_partner option").forEach((o) => { if (o.value === String(p.id)) o.textContent = newName; });
+      // Backend nur gepuffert speichern
+      clearTimeout(pmSaveT.__name);
+      pmSaveT.__name = setTimeout(() => api.updatePartner(p.id, { name: newName }).catch((e) => toast(e.message, true)), 400);
+    });
+    box.querySelector("#cxPmType").addEventListener("change", (e) => { p.ptype = e.target.value; api.updatePartner(p.id, { ptype: e.target.value }).catch((x) => toast(x.message, true)); });
+    box.querySelector("#cxPmBranch").addEventListener("change", (e) => { p.branch = e.target.value; api.updatePartner(p.id, { branch: e.target.value }).catch((x) => toast(x.message, true)); });
+    box.querySelector("#cxPmDel").addEventListener("click", () => pmConfirmDelete(p));
+    box.querySelectorAll("[data-fid]").forEach((inp) => {
+      const fid = +inp.dataset.fid;
+      const save = () => { clearTimeout(pmSaveT[fid]); pmSaveT[fid] = setTimeout(() => api.updatePartnerField(fid, { value: inp.value }).catch((e) => toast(e.message, true)), 450); };
+      inp.addEventListener("input", save); inp.addEventListener("blur", save);
+      if (inp.classList.contains("grow")) { inp.addEventListener("focus", () => pmGrow(inp)); inp.addEventListener("blur", () => { inp.style.height = ""; inp.style.overflow = ""; }); }
+    });
+    box.querySelectorAll("[data-flabel]").forEach((inp) => {
+      const fid = +inp.dataset.flabel;
+      inp.addEventListener("change", () => api.updatePartnerField(fid, { label: inp.value }).catch((e) => toast(e.message, true)));
+    });
+    box.querySelectorAll("[data-fdel]").forEach((b) => b.addEventListener("click", async () => { try { await api.deletePartnerField(+b.dataset.fdel); await pmLoad(); } catch (e) { toast(e.message, true); } }));
+    const menu = box.querySelector("#cxPmTypes");
+    box.querySelector("#cxPmAddField").addEventListener("click", () => menu.classList.toggle("show"));
+    menu.querySelectorAll("[data-nt]").forEach((c) => c.addEventListener("click", async () => { try { await api.addPartnerField(p.id, { label: "", ftype: c.dataset.nt }); await pmLoad(); } catch (e) { toast(e.message, true); } }));
+  }
+  function pmConfirmDelete(p) {
+    if (pmScrim.querySelector(".pm-confirm")) return;
+    const c = el("div", "pm-confirm");
+    c.innerHTML = `<div class="pm-cbox"><p>Partner „${esc(p.name)}“ löschen? Zugeordnete Verträge bleiben erhalten (werden nur entkoppelt).</p><div class="pm-cbtns"><button class="no">Abbrechen</button><button class="yes">Löschen</button></div></div>`;
+    pmScrim.querySelector(".cx-pm").appendChild(c);
+    c.querySelector(".no").addEventListener("click", () => c.remove());
+    c.querySelector(".yes").addEventListener("click", async () => { c.remove(); try { await api.deletePartner(p.id); pm.selId = null; await pmLoad(); } catch (e) { toast(e.message, true); } });
+  }
 
   return { unmount() {
     if (posDrag) { detachP(); cleanupP(); }
@@ -1156,9 +1383,10 @@ function mount(root, ctx) {
     document.removeEventListener("click", onDocClick);
     document.removeEventListener("keydown", onFocusModeKey, true);
     window.removeEventListener("beforeunload", flushBeacon);
-    rmenu.remove(); overlay.remove(); pdf.remove(); fileInput.remove(); vendorList.remove();
+    rmenu.remove(); overlay.remove(); pdf.remove(); fileInput.remove();
     if (fmDrag) { fmDragDetach(); try { fmDrag.clone.remove(); fmDrag.ph.remove(); } catch (_) {} fmDrag = null; }
     if (fmScrim) fmScrim.remove();
+    if (pmScrim) pmScrim.remove();
     root.innerHTML = "";
   } };
 }

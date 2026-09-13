@@ -117,7 +117,7 @@
 .cxwrap .dkuend{ display:flex; align-items:center; gap:8px; margin-top:9px; font-size:12px; color:var(--text-dim); }
 .cxwrap .dbody{ padding:14px 16px 16px; }
 .cxwrap .fld{ margin-bottom:11px; } .cxwrap .fld label{ display:block; font-size:10px; letter-spacing:.05em; text-transform:uppercase; color:var(--text-faint); margin-bottom:5px; }
-.cxwrap .fld input, .cxwrap .fld select{ width:100%; font:inherit; font-size:13px; background:var(--surface-2); color:var(--text); border:1px solid var(--border); border-radius:var(--radius-sm); padding:7px 9px; }
+.cxwrap .fld input, .cxwrap .fld select{ width:100%; box-sizing:border-box; height:33px; font:inherit; font-size:13px; background:var(--surface-2); color:var(--text); border:1px solid var(--border); border-radius:var(--radius-sm); padding:6px 9px; }
 .cxwrap .fld input.mono{ font-family:var(--font-num); }
 .cxwrap .fld input:focus, .cxwrap .fld select:focus{ outline:0; border-color:var(--accent-line); }
 .cxwrap .frow{ display:flex; gap:10px; } .cxwrap .frow .fld{ flex:1; }
@@ -157,7 +157,7 @@
 
 .cx-pdfscrim{ position:fixed; inset:0; z-index:90; background:rgba(0,0,0,.72); display:none; place-items:center; padding:26px; }
 .cx-pdfscrim.show{ display:grid; }
-.cx-pdfbox{ --cx-cat:var(--accent); width:1240px; max-width:96vw; height:90vh; background:var(--surface); border:1px solid var(--cx-cat); border-radius:var(--radius-lg); box-shadow:0 0 0 1px color-mix(in srgb,var(--cx-cat) 38%,transparent), var(--shadow); display:flex; flex-direction:column; overflow:hidden; transition:border-color .18s; }
+.cx-pdfbox{ --cx-cat:var(--accent); width:1480px; max-width:96vw; height:88vh; background:var(--surface); border:1px solid var(--cx-cat); border-radius:var(--radius-lg); box-shadow:0 0 0 1px color-mix(in srgb,var(--cx-cat) 38%,transparent), var(--shadow); display:flex; flex-direction:column; overflow:hidden; transition:border-color .18s; }
 .cx-pdfhead{ display:flex; align-items:center; gap:12px; padding:11px 16px; border-bottom:1px solid var(--border); background:var(--surface-2); flex:none; }
 .cx-pdfhead .pt{ font-family:var(--font-display); font-weight:600; font-size:14px; flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .cx-pdfhead a{ font-size:12px; color:var(--accent); text-decoration:none; } .cx-pdfhead .px{ cursor:pointer; color:var(--text-faint); font-size:18px; } .cx-pdfhead .px:hover{ color:var(--text); }
@@ -171,8 +171,8 @@
 .cx-pdfbar .knob{ width:22px; height:46px; margin-left:-1px; border-radius:7px; background:var(--cx-cat); border:1px solid color-mix(in srgb,var(--cx-cat) 70%,#000); color:#12131a; font-weight:700; display:flex; align-items:center; justify-content:center; font-size:13px; box-shadow:0 2px 8px -2px color-mix(in srgb,var(--cx-cat) 70%,transparent); transition:transform .15s; }
 .cx-pdfbar:hover .knob{ transform:scale(1.06); }
 .cx-pdfbar .chev{ transition:transform .22s ease; line-height:1; }
-.cx-pdfside{ width:300px; flex:none; overflow:hidden; transition:width .24s ease; }
-.cx-pdfside-in{ width:300px; height:100%; overflow:auto; padding:15px 16px; background:var(--surface); transition:transform .24s ease; }
+.cx-pdfside{ width:400px; flex:none; overflow:hidden; transition:width .24s ease; }
+.cx-pdfside-in{ width:100%; height:100%; overflow:auto; padding:15px 16px; background:var(--surface); transition:transform .24s ease; }
 .cx-pdfbox.collapsed .cx-pdfside{ width:0; }
 .cx-pdfbox.collapsed .cx-pdfside-in{ transform:translateX(100%); }
 .cx-pdfbox.collapsed .cx-pdfbar .chev{ transform:rotate(180deg); }
@@ -201,6 +201,10 @@
 .cxwrap .docsec .dt{ display:flex; align-items:center; gap:9px; }
 .cxwrap .docsec .dt .cnt{ font-family:var(--font-num); font-size:12px; color:var(--text-dim); background:var(--surface-2); border:1px solid var(--border); border-radius:20px; padding:1px 9px; }
 .cxwrap .docsec .dt .sp{ flex:1; }
+/* Vertragspartner-Dropdown: „neu anlegen"-Feld unter dem Select (eindeutige Klassen, kollisionssicher) */
+.vpick{ position:relative; }
+.vpick-new{ margin-top:7px; }
+
 /* Dateiverwaltungs-Button (Stil 1 getönt, in Kategoriefarbe --cat) — Ordner-Icon 20px wie das Haushalts-Verknüpfungs-Icon */
 .cxwrap .docsec .dt .fmbtn{ display:inline-flex; align-items:center; gap:7px; font:inherit; font-size:12.5px; font-weight:500; cursor:pointer; line-height:1; padding:5px 11px 5px 9px; border-radius:8px; color:var(--cat,var(--accent)); background:color-mix(in srgb, var(--cat,var(--accent)) 12%, transparent); border:1px solid color-mix(in srgb, var(--cat,var(--accent)) 45%, transparent); transition:filter .12s var(--ease,cubic-bezier(.4,0,.2,1)), background .12s var(--ease,cubic-bezier(.4,0,.2,1)), transform .12s var(--ease,cubic-bezier(.4,0,.2,1)); }
 .cxwrap .docsec .dt .fmbtn:hover{ transform:translateY(-1px); background:color-mix(in srgb, var(--cat,var(--accent)) 20%, transparent); }
@@ -315,3 +319,94 @@
 .cx-fm .frow input{ user-select:text; }
 .cx-fm .frow .fi[data-open], .cx-fm .frow .meta[data-open]{ cursor:pointer; }
 .cx-fm .frow .fi[data-open]:hover, .cx-fm .frow .meta[data-open]:hover .fn{ color:var(--text); }
+
+/* ==== Vertragspartner-Verwaltung (Modal) ================================= */
+.cxwrap .docsec .dt .fmbtn.pmbtn{ } /* teilt den Verwaltung-Button-Stil, eigenes Icon */
+.cx-pmscrim{ position:fixed; inset:0; z-index:60; display:none; align-items:center; justify-content:center;
+  background:rgba(0,0,0,.58); padding:22px; }
+.cx-pmscrim.show{ display:flex; }
+.cx-pm{ width:min(1480px,96vw); height:88vh; background:var(--surface); border:1px solid var(--border);
+  border-radius:14px; box-shadow:0 26px 64px -22px rgba(0,0,0,.85); display:flex; flex-direction:column; overflow:hidden; position:relative; }
+.cx-pmhead{ display:flex; align-items:center; gap:10px; padding:13px 16px; border-bottom:1px solid var(--border-soft); }
+.cx-pmhead h2{ font-family:"Space Grotesk",Inter,sans-serif; font-size:14px; font-weight:600; margin:0; }
+.cx-pmhead .sp{ flex:1; }
+.cx-pmhead .x{ color:var(--text-faint); cursor:pointer; font-size:16px; padding:2px 6px; border-radius:6px; }
+.cx-pmhead .x:hover{ background:var(--surface-2); color:var(--text); }
+.cx-pmbody{ flex:1; display:flex; min-height:0; }
+
+.cx-pmlist{ width:250px; flex:none; display:flex; flex-direction:column; border-right:1px solid var(--border-soft); padding:12px; overflow:auto; }
+.cx-pmlh{ display:flex; justify-content:space-between; align-items:center; margin:0 2px 10px; }
+.cx-pmlh .t{ font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-faint); }
+.cx-pmlh .add{ font-size:11px; color:var(--accent); cursor:pointer; }
+.cx-pmnew{ margin-bottom:8px; }
+.cx-pmnew input{ width:100%; background:var(--surface-2); border:1px solid var(--border); border-radius:7px; color:var(--text); font:inherit; font-size:13px; padding:7px 9px; outline:none; }
+.cx-pmnew input:focus{ border-color:var(--accent); }
+.cx-pmlist .grp{ font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-faint); margin:6px 2px 4px; }
+.cx-pmrow{ display:flex; align-items:center; gap:9px; padding:8px 8px; border-radius:8px; cursor:pointer; margin-bottom:2px; }
+.cx-pmrow:hover{ background:var(--surface-2); }
+.cx-pmrow.sel{ background:var(--surface-2); box-shadow:inset 2px 0 0 var(--accent); }
+.cx-pmrow .av{ width:26px; height:26px; border-radius:7px; flex:none; display:grid; place-items:center; font-size:11px; font-weight:700; color:#15171a; }
+.cx-pmrow .meta{ flex:1; min-width:0; }
+.cx-pmrow .nm{ font-size:13px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.cx-pmrow .mi{ font-size:10px; color:var(--text-faint); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.cx-pmrow .chev{ flex:none; color:var(--text-faint); display:grid; place-items:center; }
+.cx-pmrow:hover .chev,.cx-pmrow.sel .chev{ color:var(--accent); }
+.cx-pmrow .chev svg{ width:15px; height:15px; }
+.cx-pmempty{ font-size:12px; color:var(--text-faint); padding:12px 4px; }
+
+.cx-pmdetail{ flex:1; min-width:0; padding:20px 24px; overflow:auto; }
+.cx-pmdetail .detail-in{ max-width:1040px; margin:0 auto; }
+.cx-pmdetail .dhead{ display:flex; gap:13px; align-items:center; margin-bottom:16px; }
+.cx-pmdetail .bigav{ width:44px; height:44px; border-radius:11px; flex:none; display:grid; place-items:center; font-size:18px; font-weight:700; color:#15171a; }
+.cx-pmdetail .ht{ flex:1; min-width:0; }
+.cx-pmdetail .nm-edit{ font-family:"Space Grotesk",Inter,sans-serif; font-size:17px; font-weight:600; background:transparent; border:1px solid transparent; border-radius:6px; color:var(--text); padding:3px 7px; margin:-3px -7px; outline:none; width:100%; }
+.cx-pmdetail .nm-edit:hover{ background:var(--surface-2); }
+.cx-pmdetail .nm-edit:focus{ background:var(--surface-2); border-color:var(--accent); }
+.cx-pmdetail .stamm{ display:flex; gap:8px; margin-top:7px; align-items:center; }
+.cx-pmdetail .stamm select{ font-size:11px; background:var(--surface-2); border:1px solid var(--border); border-radius:6px; color:var(--text-dim); padding:4px 7px; outline:none; cursor:pointer; }
+.cx-pmdetail .stamm select:focus{ border-color:var(--accent); color:var(--text); }
+.cx-pmdetail .stamm .pm-del{ margin-left:auto; font:inherit; font-size:11px; color:var(--negative); background:none; border:1px solid color-mix(in srgb,var(--negative) 35%,transparent); border-radius:6px; padding:4px 10px; cursor:pointer; }
+.cx-pmdetail .stamm .pm-del:hover{ background:color-mix(in srgb,var(--negative) 12%,transparent); }
+
+.cx-pmdetail .fgrid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:12px 16px; }
+.cx-pmdetail .fld{ display:flex; flex-direction:column; }
+.cx-pmdetail .fld.wide{ grid-column:1 / -1; }
+.cx-pmdetail .fld label{ font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color:var(--text-faint); margin-bottom:5px; display:flex; align-items:center; gap:7px; }
+.cx-pmdetail .fld label .lbl{ flex:1; min-width:0; font:inherit; font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color:var(--text); background:var(--surface-2); border:1px solid var(--border); border-radius:5px; padding:3px 7px; outline:none; }
+.cx-pmdetail .fld label .lbl:focus{ border-color:var(--accent); }
+.cx-pmdetail .fld label .lbl::placeholder{ color:var(--text-faint); text-transform:none; letter-spacing:0; }
+.cx-pmdetail .fld label .tp{ font-size:8.5px; color:var(--text-faint); border:1px solid var(--border); border-radius:9px; padding:0 5px; letter-spacing:0; text-transform:none; margin-left:auto; flex:none; }
+.cx-pmdetail .fld label .del{ cursor:pointer; color:var(--text-faint); flex:none; }
+.cx-pmdetail .fld label .del:hover{ color:var(--negative); }
+.cx-pmdetail .fld input,.cx-pmdetail .fld textarea{ background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text); font:inherit; font-size:13px; padding:8px 10px; outline:none; width:100%; }
+.cx-pmdetail .fld input:focus,.cx-pmdetail .fld textarea:focus{ border-color:var(--accent); }
+.cx-pmdetail .fld textarea.grow{ resize:vertical; overflow:auto; height:118px; min-height:118px; line-height:1.45; }
+
+.cx-pmdetail .addfield{ margin-top:16px; font-size:12px; color:var(--accent); border:1px dashed color-mix(in srgb,var(--accent) 40%,transparent); border-radius:8px; padding:9px; text-align:center; cursor:pointer; }
+.cx-pmdetail .typemenu{ display:none; justify-content:center; gap:7px; margin-top:10px; flex-wrap:wrap; }
+.cx-pmdetail .typemenu.show{ display:flex; }
+.cx-pmdetail .typemenu .tp{ font-size:11px; color:var(--text-dim); background:var(--surface-2); border:1px solid var(--border); border-radius:20px; padding:4px 12px; cursor:pointer; }
+.cx-pmdetail .typemenu .tp:hover{ border-color:var(--accent); color:var(--text); }
+
+.cx-pmcontracts{ margin-top:18px; border-top:1px solid var(--border-soft); padding-top:14px; }
+.cx-pmcontracts .ph{ font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-faint); margin-bottom:9px; }
+.cx-pmcontracts .cc{ display:flex; align-items:center; gap:10px; padding:8px 10px; background:var(--surface-2); border-radius:8px; margin-bottom:5px; }
+.cx-pmcontracts .cc .cd{ width:8px; height:8px; border-radius:50%; flex:none; }
+.cx-pmcontracts .cc .cn{ flex:1; font-size:13px; }
+.cx-pmcontracts .cc .cn .csub{ font-size:10.5px; color:var(--text-faint); }
+.cx-pmcontracts .cc-empty{ font-size:12px; color:var(--text-faint); font-style:italic; }
+
+.cx-pm .pm-confirm{ position:absolute; inset:0; background:rgba(0,0,0,.4); display:flex; align-items:center; justify-content:center; z-index:5; }
+.cx-pm .pm-cbox{ background:var(--surface-2); border:1px solid var(--border); border-radius:12px; padding:18px 20px; max-width:380px; box-shadow:0 18px 44px -14px rgba(0,0,0,.7); }
+.cx-pm .pm-cbox p{ font-size:13px; margin:0 0 14px; }
+.cx-pm .pm-cbtns{ display:flex; gap:8px; justify-content:flex-end; }
+.cx-pm .pm-cbtns button{ font:inherit; font-size:12.5px; border-radius:7px; padding:6px 14px; cursor:pointer; border:1px solid var(--border); background:var(--surface-3); color:var(--text); }
+.cx-pm .pm-cbtns .yes{ background:color-mix(in srgb,var(--negative) 80%,transparent); border-color:var(--negative); color:#15171a; font-weight:600; }
+
+/* Vertragspartner-Verwaltung-Button über dem Partner-Feld (nur Detail-Panel) */
+/* „Vertragliches"-Kopfzeile über den Feldern (nutzt den Dokumente-Header-Stil) */
+.cxwrap .vsec{ margin-top:0; margin-bottom:12px; }
+
+/* Typ/Branche-Combobox im Partner-Modal (Select + Neu-Feld) */
+.cx-pmdetail .stamm .cbx{ display:inline-flex; }
+.cx-pmdetail .stamm .cbx-in{ font:inherit; font-size:11px; background:var(--surface-2); border:1px solid var(--accent); border-radius:6px; color:var(--text); padding:4px 7px; outline:none; width:140px; }

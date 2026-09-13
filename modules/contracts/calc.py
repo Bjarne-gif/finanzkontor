@@ -158,6 +158,8 @@ def compute_contracts(posten_by_id, contract_categories, contracts, today=None):
             "category_id": ct.get("category_id"),
             "category": cat_name.get(ct.get("category_id"), ""),
             "vendor": ct["vendor"],
+            "partner_id": ct.get("partner_id"),
+            "partner_name": ct.get("partner_name", ""),
             "label": ct.get("label", ""),
             "posten_active": posten_active,
             "amount": p["amount"], "interval": p["interval"],
@@ -201,14 +203,14 @@ def compute_contracts(posten_by_id, contract_categories, contracts, today=None):
         "count_active": len(active),
         "cost": {"monthly": sum_m, "yearly": sum_y},
         "next_deadline": None if not nxt else {
-            "vendor": nxt["vendor"], "posten_id": nxt["posten_id"],
+            "vendor": nxt.get("partner_name") or "", "posten_id": nxt["posten_id"],
             "stichtag": nxt["stichtag"], "days": nxt["days_to_stichtag"]},
         "action_needed": {
             "total": len(missed) + len(ending_soon),
             "missed": len(missed), "ending_soon": len(ending_soon)},
         "savings_potential": {"count": len(candidates),
                               "monthly": pot_m, "yearly": round(pot_m * 12, 2)},
-        "upcoming": [{"vendor": it["vendor"], "posten_id": it["posten_id"],
+        "upcoming": [{"vendor": it.get("partner_name") or "", "posten_id": it["posten_id"],
                       "stichtag": it["stichtag"], "days": it["days_to_stichtag"]}
                      for it in upcoming[:8]],
     }

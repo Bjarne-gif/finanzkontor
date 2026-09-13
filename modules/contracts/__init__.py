@@ -6,7 +6,7 @@ ist über /api/contracts abfragbar.
 """
 from core import registry
 from modules.contracts.api import bp
-from modules.contracts.schema import migrate_v5, migrate_v6, migrate_v7, migrate_v8, migrate_v9, migrate_v10
+from modules.contracts.schema import migrate_v5, migrate_v6, migrate_v7, migrate_v8, migrate_v9, migrate_v10, migrate_v11
 
 registry.register("contracts", "Verträge", order=40, blueprint=bp,
                   panel="js/modules/contracts.js")
@@ -16,3 +16,4 @@ registry.register_migration(7, migrate_v7)
 registry.register_migration(8, migrate_v8)
 registry.register_migration(9, migrate_v9)
 registry.register_migration(10, migrate_v10)
+registry.register_migration(11, migrate_v11)

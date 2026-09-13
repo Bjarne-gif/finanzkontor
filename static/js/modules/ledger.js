@@ -95,7 +95,7 @@ function mount(root, ctx) {
       const m = new Map();
       (r.contracts || []).forEach((c) => {
         if (c.posten_id == null) return;
-        const tip = [c.vendor, c.label].filter(Boolean).join(" · ") || "Vertrag";
+        const tip = [c.partner_name, c.label].filter(Boolean).join(" · ") || "Vertrag";
         m.set(c.posten_id, { color: colorOf.get(c.category_id) || "var(--accent)", tip });
       });
       contractMap = m;
@@ -163,6 +163,49 @@ function mount(root, ctx) {
   const findPosten = (id) => { for (const c of data.categories) for (const p of c.posten) if (p.id === id) return p; return null; };
   const catObj = (cid) => data.categories.find((c) => c.id === cid);
   const catOf = (id) => data.categories.find((c) => c.posten.some((p) => p.id === id));
+
+  // Summen/Kennzahlen live aktualisieren OHNE Neuaufbau (Fokus bleibt). Bezieht auch
+  // die noch nicht gespeicherten Geister-Zeilen-Werte (Drafts) provisorisch mit ein.
+  function paintSums() {
+    recompute();
+    const draftM = {};
+    for (const c of data.categories) {
+      let s = 0;
+      for (const d of (ui.drafts[c.id] || [])) {
+        const raw = d.src === "jaehrlich" ? d.y : d.m;
+        if (!raw || !String(raw).trim()) continue;
+        let m; try { m = d.src === "jaehrlich" ? parse(d.y) / 12 : parse(d.m); } catch (e) { continue; }
+        if (m) s += m;
+      }
+      if (s) draftM[c.id] = s;
+    }
+    for (const c of data.categories) {
+      const row = root.querySelector(`.rp.sum[data-block="${c.id}"]`);
+      if (!row) continue;
+      const dm = draftM[c.id] || 0;
+      const mv = row.querySelector(".mAmt .sumv"), yv = row.querySelector(".yw .sumv");
+      if (mv) mv.textContent = fmtEUR(c.monthly + dm);
+      if (yv) yv.textContent = fmtEUR(c.yearly + dm * 12);
+    }
+    let incM = 0, expM = 0;
+    for (const c of data.categories) { const dm = draftM[c.id] || 0; if (dm) { if (c.kind === "income") incM += dm; else expM += dm; } }
+    const t = data.totals, ps = root.querySelector(".psblock");
+    if (ps && t) {
+      const einM = t.einnahmen.monthly + incM, kosM = t.kosten.monthly + expM, uebM = einM - kosM;
+      const vals = ps.querySelectorAll(".psr.val"), sumRow = ps.querySelector(".psr.sum");
+      const set = (rowEl, m, y) => { if (!rowEl) return; const pm = rowEl.querySelector(".pm"), py = rowEl.querySelector(".py"); if (pm) pm.innerHTML = cur(m); if (py) py.innerHTML = cur(y); };
+      set(vals[0], einM, einM * 12);
+      set(vals[1], kosM, kosM * 12);
+      if (sumRow) {
+        const uCls = uebM > 0 ? "pos" : uebM < 0 ? "neg" : "";
+        const pk = sumRow.querySelector(".pk"), pm = sumRow.querySelector(".pm"), py = sumRow.querySelector(".py");
+        if (pk) pk.textContent = uebM < 0 ? "Verlust" : "Überschuss";
+        if (pm) { pm.innerHTML = cur(uebM); pm.className = "pm big " + uCls; }
+        if (py) { py.innerHTML = cur(uebM * 12); py.className = "py " + uCls; }
+      }
+    }
+    if (typeof liveSplit === "function" && root.querySelector(".splitblock")) liveSplit();
+  }
 
   // ---- Fokus-Descriptoren (überstehen Neuaufbau) ----
   function descOf(el) {
@@ -628,16 +671,25 @@ function mount(root, ctx) {
       const row = inp.closest(".rp");
       const other = kind === "m" ? row.querySelector(".rval[data-y]") : row.querySelector(".rval[data-m]");
       wireAmt(inp, true);
-      inp.addEventListener("input", () => { try { const v = parse(inp.value); if (other) other.value = kind === "m" ? amtStr(v * 12) : amtStr(v / 12); } catch (e) {} });
-      inp.addEventListener("keydown", (e) => { const p = findPosten(id); if (e.key === "Enter") { e.preventDefault(); inp.blur(); } else if (e.key === "Escape") { if (p) inp.value = fmtEUR(kind === "m" ? p.monthly : p.yearly); inp.blur(); } });
+      inp.addEventListener("focus", () => { inp._dirty = false; const p = findPosten(id); inp._orig = p ? { amount: p.amount, interval: p.interval } : null; });
+      inp.addEventListener("input", () => {
+        const p = findPosten(id); if (!p) return;
+        let v; try { v = parse(inp.value); } catch (e) { return; }   // ungültig: Meldung erst bei blur
+        if (other) { try { other.value = kind === "m" ? amtStr(v * 12) : amtStr(v / 12); } catch (e) {} }
+        p.amount = v; p.interval = kind === "m" ? "monatlich" : "jaehrlich"; inp._dirty = true;
+        paintSums();
+      });
+      inp.addEventListener("keydown", (e) => {
+        const p = findPosten(id);
+        if (e.key === "Enter") { e.preventDefault(); inp.blur(); }
+        else if (e.key === "Escape") { if (p && inp._orig) { p.amount = inp._orig.amount; p.interval = inp._orig.interval; } inp._dirty = false; if (p) inp.value = fmtEUR(kind === "m" ? p.monthly : p.yearly); paintSums(); inp.blur(); }
+      });
       inp.addEventListener("blur", () => {
         const p = findPosten(id); if (!p) return;
-        const cur = kind === "m" ? p.monthly : p.yearly;
-        let v; try { v = parse(inp.value); } catch (e) { toast(e.message, true); inp.value = fmtEUR(cur); return; }
-        if (Math.abs(v - cur) < 0.005) { inp.value = fmtEUR(cur); return; }
-        p.amount = v; p.interval = kind === "m" ? "monatlich" : "jaehrlich";
-        pendingFocus = { desc: descOf(document.activeElement) };
-        recompute(); render();
+        if (!inp._dirty) { inp.value = fmtEUR(kind === "m" ? p.monthly : p.yearly); return; }
+        let v; try { v = parse(inp.value); } catch (e) { toast(e.message, true); if (inp._orig) { p.amount = inp._orig.amount; p.interval = inp._orig.interval; } inp.value = fmtEUR(kind === "m" ? p.monthly : p.yearly); inp._dirty = false; paintSums(); return; }
+        p.amount = v; p.interval = kind === "m" ? "monatlich" : "jaehrlich"; inp._dirty = false;
+        inp.value = fmtEUR(v); paintSums();
         api.updatePosten(id, { amount: v, interval: p.interval }).catch((e) => { toast(e.message, true); refresh(); });
       });
     });
@@ -658,8 +710,8 @@ function mount(root, ctx) {
     const note = row.querySelector(".g-note"), name = row.querySelector(".g-name"), gm = row.querySelector(".g-m"), gy = row.querySelector(".g-y");
     const gadd = row.querySelector("[data-gadd]");
     const upd = (f, v) => { const d = getDraft(cid, k); if (d) d[f] = v; saveUi(); };
-    gm.addEventListener("input", () => { const d = getDraft(cid, k); if (d) d.src = "monatlich"; upd("m", gm.value); try { gy.value = gm.value.trim() ? amtStr(parse(gm.value) * 12) : ""; } catch (e) {} upd("y", gy.value); maybeSpawn(cid, k, row); });
-    gy.addEventListener("input", () => { const d = getDraft(cid, k); if (d) d.src = "jaehrlich"; upd("y", gy.value); try { gm.value = gy.value.trim() ? amtStr(parse(gy.value) / 12) : ""; } catch (e) {} upd("m", gm.value); maybeSpawn(cid, k, row); });
+    gm.addEventListener("input", () => { const d = getDraft(cid, k); if (d) d.src = "monatlich"; upd("m", gm.value); try { gy.value = gm.value.trim() ? amtStr(parse(gm.value) * 12) : ""; } catch (e) {} upd("y", gy.value); maybeSpawn(cid, k, row); paintSums(); });
+    gy.addEventListener("input", () => { const d = getDraft(cid, k); if (d) d.src = "jaehrlich"; upd("y", gy.value); try { gm.value = gy.value.trim() ? amtStr(parse(gy.value) / 12) : ""; } catch (e) {} upd("m", gm.value); maybeSpawn(cid, k, row); paintSums(); });
     note.addEventListener("input", () => { upd("note", note.value); maybeSpawn(cid, k, row); });
     name.addEventListener("input", () => { upd("name", name.value); maybeSpawn(cid, k, row); });
     [note, name, gm, gy].forEach((inp) => inp.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); commitDraft(cid, k, { focusTrailing: true }); } }));

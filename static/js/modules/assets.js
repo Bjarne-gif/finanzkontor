@@ -530,12 +530,13 @@ function mount(root, ctx) {
     for (let ci = 0; ci < arr.length; ci++) {
       const c = arr[ci], cnt = c.positions.reduce((a, p) => a + (p.id == posDrag.pid ? 0 : 1), 0);
       if (ins < cum + cnt) return { cid: c.id, index: ins - cum };
-      if (ins === cum + cnt) {                                  // Grenze: Ende dieser Klasse ODER Anfang der nächsten
-        const next = arr[ci + 1];
-        if (!next) return { cid: c.id, index: cnt };
-        const g = q(`.gclass[data-cid="${c.id}"]`), ng = q(`.gclass[data-cid="${next.id}"]`);
-        const midGap = ((g ? g.getBoundingClientRect().bottom : 0) + (ng ? ng.getBoundingClientRect().top : 0)) / 2;
-        return (cloneCenter < midGap) ? { cid: c.id, index: cnt } : { cid: next.id, index: 0 };
+      if (ins === cum + cnt) {                                  // Grenze: Ende dieser Klasse ODER Anfang einer späteren (auch leeren)
+        let jSel = ci;
+        for (let j = ci; j < arr.length; j++) {
+          const g = q(`.gclass[data-cid="${arr[j].id}"]`);
+          if (g && g.getBoundingClientRect().top <= cloneCenter) jSel = j; else break;
+        }
+        return (jSel === ci) ? { cid: c.id, index: cnt } : { cid: arr[jSel].id, index: 0 };
       }
       cum += cnt;
     }

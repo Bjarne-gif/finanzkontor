@@ -41,11 +41,14 @@ def state():
         posten = {p["id"]: p for p in ledger_repo.list_posten(c)}
         categories = repo.list_categories(c)
         contracts = repo.list_contracts(c)
+        result = calc.compute_contracts(posten, categories, contracts)
+        result["partners"] = repo.partner_options(c)
+        result["linkable"] = repo.list_linkable(c)
         # KEIN automatisches cleanup_orphans mehr: mehrere DBs teilen sich EINEN
         # docs-Ordner, aber all_stored_names(c) kennt nur die aktive DB -> es löschte
         # die Dateien aller anderen DBs. Aufräumen läuft jetzt nur noch gezielt beim
         # expliziten Löschen (delete_doc / Vertrag entfernen).
-    return jsonify(calc.compute_contracts(posten, categories, contracts))
+    return jsonify(result)
 
 
 @bp.get("/linkable")
@@ -313,3 +316,132 @@ def delete_orphans():
     for n in names:
         storage.delete(n)
     return jsonify({"ok": True, "deleted": len(names)})
+
+
+# ==== Vertragspartner-API ==================================================
+@bp.get("/partners")
+@auth.login_required
+def partners():
+    with _conn() as c:
+        return jsonify({"partners": repo.list_partners(c), "suggest": repo.partner_suggest(c)})
+
+
+@bp.post("/partner")
+@auth.login_required
+def add_partner():
+    data = request.get_json(silent=True) or {}
+    try:
+        with _conn() as c:
+            pid = repo.add_partner(c, data)
+        return jsonify({"id": pid})
+    except ValueError as e:
+        return _err(str(e))
+
+
+@bp.patch("/partner/<int:pid>")
+@auth.login_required
+def patch_partner(pid):
+    data = request.get_json(silent=True) or {}
+    try:
+        with _conn() as c:
+            repo.update_partner(c, pid, data)
+        return jsonify({"ok": True})
+    except ValueError as e:
+        return _err(str(e))
+
+
+@bp.delete("/partner/<int:pid>")
+@auth.login_required
+def delete_partner(pid):
+    with _conn() as c:
+        repo.delete_partner(c, pid)
+    return jsonify({"ok": True})
+
+
+@bp.post("/partners/reorder")
+@auth.login_required
+def reorder_partners():
+    ids = (request.get_json(silent=True) or {}).get("ids", [])
+    with _conn() as c:
+        repo.reorder_partners(c, ids)
+    return jsonify({"ok": True})
+
+
+@bp.post("/partner/merge")
+@auth.login_required
+def merge_partners():
+    data = request.get_json(silent=True) or {}
+    try:
+        with _conn() as c:
+            repo.merge_partners(c, data.get("from_id"), data.get("into_id"))
+        return jsonify({"ok": True})
+    except (ValueError, TypeError) as e:
+        return _err(str(e))
+
+
+@bp.post("/partner/<int:pid>/field")
+@auth.login_required
+def add_field(pid):
+    data = request.get_json(silent=True) or {}
+    try:
+        with _conn() as c:
+            fid = repo.add_field(c, pid, data)
+        return jsonify({"id": fid})
+    except ValueError as e:
+        return _err(str(e))
+
+
+@bp.patch("/partner/field/<int:fid>")
+@auth.login_required
+def patch_field(fid):
+    data = request.get_json(silent=True) or {}
+    try:
+        with _conn() as c:
+            repo.update_field(c, fid, data)
+        return jsonify({"ok": True})
+    except ValueError as e:
+        return _err(str(e))
+
+
+@bp.delete("/partner/field/<int:fid>")
+@auth.login_required
+def delete_field(fid):
+    try:
+        with _conn() as c:
+            repo.delete_field(c, fid)
+        return jsonify({"ok": True})
+    except ValueError as e:
+        return _err(str(e))
+
+
+@bp.post("/partner/<int:pid>/fields/reorder")
+@auth.login_required
+def reorder_fields(pid):
+    ids = (request.get_json(silent=True) or {}).get("ids", [])
+    with _conn() as c:
+        repo.reorder_fields(c, pid, ids)
+    return jsonify({"ok": True})
+
+
+@bp.post("/contract/<int:cid>/partner")
+@auth.login_required
+def set_contract_partner(cid):
+    data = request.get_json(silent=True) or {}
+    try:
+        with _conn() as c:
+            repo.set_contract_partner(c, cid, data.get("partner_id"))
+        return jsonify({"ok": True})
+    except ValueError as e:
+        return _err(str(e))
+
+
+@bp.post("/contract/<int:cid>/posten")
+@auth.login_required
+def move_contract_posten(cid):
+    data = request.get_json(silent=True) or {}
+    try:
+        with _conn() as c:
+            repo.move_contract_posten(c, cid, data.get("posten_id"))
+        return jsonify({"ok": True})
+    except (ValueError, TypeError) as e:
+        return _err(str(e))

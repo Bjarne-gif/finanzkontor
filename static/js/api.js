@@ -76,6 +76,19 @@ export const api = {
   deleteOrphanDocs: ()              => req("DELETE", "/api/contracts/docs/orphans"),
   docDownloadUrl:   (docId)         => `/api/contracts/doc/${docId}/download`,
   docsZipUrl:       ()              => `/api/contracts/docs/zip`,
+  // Vertragspartner (Verwaltung)
+  partnersState:      ()             => req("GET",  "/api/contracts/partners"),
+  addPartner:         (data)         => req("POST", "/api/contracts/partner", data),
+  updatePartner:      (id, patch)    => req("PATCH", `/api/contracts/partner/${id}`, patch),
+  deletePartner:      (id)           => req("DELETE", `/api/contracts/partner/${id}`),
+  reorderPartners:    (ids)          => req("POST", "/api/contracts/partners/reorder", { ids }),
+  mergePartners:      (fromId, into) => req("POST", "/api/contracts/partner/merge", { from_id: fromId, into_id: into }),
+  addPartnerField:    (pid, data)    => req("POST", `/api/contracts/partner/${pid}/field`, data),
+  updatePartnerField: (fid, patch)   => req("PATCH", `/api/contracts/partner/field/${fid}`, patch),
+  deletePartnerField: (fid)          => req("DELETE", `/api/contracts/partner/field/${fid}`),
+  reorderPartnerFields:(pid, ids)    => req("POST", `/api/contracts/partner/${pid}/fields/reorder`, { ids }),
+  setContractPartner: (cid, pid)     => req("POST", `/api/contracts/contract/${cid}/partner`, { partner_id: pid }),
+  moveContractPosten: (cid, pid)     => req("POST", `/api/contracts/contract/${cid}/posten`, { posten_id: pid }),
   // Upload braucht FormData statt JSON:
   uploadContractDoc: async (cid, file) => {
     const fd = new FormData();

@@ -121,3 +121,98 @@ def migrate_v10(conn):
                     SELECT id,contract_id,filename_enc,stored_name,size,sort,created_at FROM contract_docs""")
     conn.execute("DROP TABLE contract_docs")
     conn.execute("ALTER TABLE contract_docs_new RENAME TO contract_docs")
+
+
+# Standard-Reihenfolge der festen Partner-Felder (core_key, Label, Typ).
+# Werden vorab je Partner angelegt (leer) – konsistente Ansicht, alle verschiebbar.
+PARTNER_CORE_FIELDS = [
+    ("contact",      "Ansprechpartner",    "Text"),
+    ("cancel_email", "Kündigungs-E-Mail",  "E-Mail"),
+    ("hotline",      "Hotline",            "Telefon"),
+    ("portal",       "Kundenportal",       "URL"),
+    ("postal",       "Postanschrift",      "Adresse"),
+    ("note",         "Notiz",              "Freitext"),
+]
+
+# Farbpalette für Partner-Avatare (wie Kategorien; für spätere Diagramme unterscheidbar)
+PARTNER_COLORS = ["#8f9fd9", "#6fb98a", "#d9b877", "#c49ad0", "#8fb3c9",
+                  "#d99a76", "#86bd8f", "#b39ddb", "#e0a13a", "#7fc4c0"]
+
+
+def migrate_v11(conn):
+    """Vertragspartner als eigene Entität (wie Vertragskategorien).
+
+    Neu:
+      - contract_partners: Stammdaten (Name verschlüsselt; Typ/Branche/Farbe klar).
+      - partner_fields:    ALLE Angaben (feste + eigene), je Feld Label+Typ+Wert,
+                           is_core/core_key für die feste, nicht löschbare Vorlage.
+      - contracts.partner_id: nullable, ON DELETE SET NULL (Partner löschen ⇒
+                           Vertrag verwaist, wird nicht gelöscht).
+
+    Verlustfreie Übernahme: aus den bestehenden vendor_enc werden Partner erzeugt
+    (Dubletten über normalisierten Namen zusammengefasst) und die Verträge
+    zugeordnet; je Partner die festen Felder (leer) angelegt. vendor_enc bleibt
+    vorerst als Sicherheitsnetz erhalten (Entfernen erst in einem späteren Schritt).
+    """
+    from datetime import datetime, timezone
+    from core import crypto
+
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS contract_partners (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            name_enc   TEXT NOT NULL,
+            ptype      TEXT,
+            branch     TEXT,
+            color      TEXT,
+            sort       INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT,
+            updated_at TEXT
+        )""")
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS partner_fields (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            partner_id INTEGER NOT NULL
+                       REFERENCES contract_partners(id) ON DELETE CASCADE,
+            label_enc  TEXT NOT NULL,
+            ftype      TEXT NOT NULL DEFAULT 'Text',
+            value_enc  TEXT,
+            is_core    INTEGER NOT NULL DEFAULT 0,
+            core_key   TEXT,
+            sort       INTEGER NOT NULL DEFAULT 0
+        )""")
+
+    cols = [r["name"] for r in conn.execute("PRAGMA table_info(contracts)").fetchall()]
+    if "partner_id" not in cols:
+        conn.execute("ALTER TABLE contracts ADD COLUMN partner_id INTEGER "
+                     "REFERENCES contract_partners(id) ON DELETE SET NULL")
+
+    now = datetime.now(timezone.utc).isoformat()
+
+    def _seed_fields(pid):
+        for i, (ck, label, ftype) in enumerate(PARTNER_CORE_FIELDS):
+            conn.execute(
+                "INSERT INTO partner_fields(partner_id,label_enc,ftype,value_enc,is_core,core_key,sort) "
+                "VALUES(?,?,?,?,?,?,?)",
+                (pid, crypto.encrypt(label), ftype, None, 1, ck, i))
+
+    by_norm = {}  # normalisierter Name -> partner_id
+    for r in conn.execute("SELECT id, vendor_enc FROM contracts").fetchall():
+        try:
+            vendor = crypto.decrypt(r["vendor_enc"]) if r["vendor_enc"] else ""
+        except Exception:
+            vendor = ""
+        norm = vendor.strip().lower()
+        if not norm:
+            continue
+        pid = by_norm.get(norm)
+        if pid is None:
+            color = PARTNER_COLORS[len(by_norm) % len(PARTNER_COLORS)]
+            cur = conn.execute(
+                "INSERT INTO contract_partners(name_enc,ptype,branch,color,sort,created_at,updated_at) "
+                "VALUES(?,?,?,?,?,?,?)",
+                (crypto.encrypt(vendor.strip()), None, None, color, len(by_norm), now, now))
+            pid = cur.lastrowid
+            by_norm[norm] = pid
+            _seed_fields(pid)
+        conn.execute("UPDATE contracts SET partner_id=? WHERE id=?", (pid, r["id"]))
+    # vendor_enc bleibt erhalten (Sicherheitsnetz)
