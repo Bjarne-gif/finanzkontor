@@ -1307,7 +1307,7 @@ function mount(root, ctx) {
       : `<input data-fid="${f.id}" value="${esc(f.value)}" placeholder="—">`;
     const label = f.is_core ? esc(f.label)
       : `<input class="lbl" data-flabel="${f.id}" value="${esc(f.label)}" placeholder="Feldname eingeben …">`;
-    return `<div class="fld${PM_MULTI(f.ftype) ? " wide" : ""}"><label>${label}<span class="tp">${esc(f.ftype)}</span>`
+    return `<div class="fld${PM_MULTI(f.ftype) ? " wide" : ""}" data-frow="${f.id}"><label>${label}<span class="fdrag" data-fdrag="${f.id}" title="Verschieben">⠿</span><span class="tp">${esc(f.ftype)}</span>`
       + (f.is_core ? "" : `<span class="del" data-fdel="${f.id}" title="Feld entfernen">✕</span>`) + `</label>${val}</div>`;
   }
   function pmRenderDetail() {
@@ -1367,6 +1367,109 @@ function mount(root, ctx) {
     const menu = box.querySelector("#cxPmTypes");
     box.querySelector("#cxPmAddField").addEventListener("click", () => menu.classList.toggle("show"));
     menu.querySelectorAll("[data-nt]").forEach((c) => c.addEventListener("click", async () => { try { await api.addPartnerField(p.id, { label: "", ftype: c.dataset.nt }); await pmLoad(); } catch (e) { toast(e.message, true); } }));
+    pmWireFieldDrag(p);
+  }
+  let pmFDrag = null;
+  const PM_SWAP = 0.5; // Klon-Kante über X% des Nachbarn ⇒ umspringen (0.5 = Mitte)
+  function pmWireFieldDrag(p) {
+    const grid = pmScrim.querySelector(".cx-pmdetail .fgrid");
+    if (!grid) return;
+    grid.querySelectorAll(".fdrag").forEach((h) => { if (h._wired) return; h._wired = 1; h.addEventListener("pointerdown", (e) => pmFieldDown(e, grid, p)); });
+  }
+  function pmFieldDown(e, grid, p) {
+    if (e.button != null && e.button !== 0) return;
+    e.preventDefault();
+    const fld = e.target.closest(".fld"); if (!fld) return;
+    const bound = pmScrim.querySelector(".cx-pmdetail");               // Klon-Host + Klemm-Bereich
+    const r = fld.getBoundingClientRect(), clone = fld.cloneNode(true);
+    const s = fld.querySelectorAll("input,textarea"), c = clone.querySelectorAll("input,textarea");
+    s.forEach((el2, i) => { if (c[i]) c[i].value = el2.value; });
+    clone.classList.add("pm-fclone"); clone.classList.remove("pm-fph"); clone.removeAttribute("data-frow");
+    clone.style.width = r.width + "px"; clone.style.left = r.left + "px"; clone.style.top = r.top + "px";
+    bound.appendChild(clone);                                          // Klon im Detail-Scope ⇒ 1:1-Optik
+    fld.classList.add("pm-fph");
+    pmFDrag = { fld, grid, p, clone, bound, dx: e.clientX - r.left, dy: e.clientY - r.top, next: fld.nextSibling };
+    window.addEventListener("pointermove", pmFieldMove);
+    window.addEventListener("pointerup", pmFieldUp, { once: true });
+    window.addEventListener("keydown", pmFieldKey, true);
+    pmFieldMove(e);
+  }
+  function pmFieldMove(e) {
+    if (!pmFDrag) return;
+    const D = pmFDrag, clone = D.clone, grid = D.grid;
+    // Position berechnen + auf die Detailspalte klemmen (nicht über die Kanten hinaus)
+    const b = D.bound.getBoundingClientRect();
+    const cw = clone.offsetWidth, ch = clone.offsetHeight;
+    let left = e.clientX - D.dx, top = e.clientY - D.dy;
+    left = Math.max(b.left, Math.min(left, b.right - cw));
+    top  = Math.max(b.top,  Math.min(top,  b.bottom - ch));
+    clone.style.left = left + "px"; clone.style.top = top + "px";
+    // FLIP-Snapshot (viewport) vor evtl. Umsortieren
+    const kidsAll = [...grid.querySelectorAll(".fld")];
+    const first = new Map(kidsAll.map((f) => [f, f.getBoundingClientRect()]));
+    // Kanten-basiert, transform-immun (Layout-Position via offset*), immer nur EIN Slot pro Schritt
+    let changed = false, guard = 0;
+    while (guard++ < 24) {
+      const gr = grid.getBoundingClientRect(), cRect = clone.getBoundingClientRect();
+      const cl = cRect.left - gr.left, ct = cRect.top - gr.top, cr = cl + cw, cb = ct + ch; // Klon in Grid-Koordinaten
+      const kids = [...grid.children].filter((c2) => c2.classList && c2.classList.contains("fld"));
+      const anchors = kids.filter((f) => f !== D.fld);
+      const k = kids.indexOf(D.fld);                       // Platzhalter sitzt an Index k
+      const box = (f) => ({ l: f.offsetLeft, t: f.offsetTop, w: f.offsetWidth, h: f.offsetHeight });
+      let did = false;
+      // vorwärts (rechts / unten): Nachbar direkt hinter dem Platzhalter
+      const next = anchors[k];
+      if (next) {
+        const n = box(next), sameRow = ct < n.t + n.h && cb > n.t;
+        if (sameRow ? (cr > n.l + n.w * PM_SWAP) : (cb > n.t + n.h * PM_SWAP)) {
+          grid.insertBefore(D.fld, next.nextSibling); did = changed = true;
+        }
+      }
+      // rückwärts (links / oben): Nachbar direkt vor dem Platzhalter
+      if (!did) {
+        const prev = anchors[k - 1];
+        if (prev) {
+          const p2 = box(prev), sameRow = ct < p2.t + p2.h && cb > p2.t;
+          if (sameRow ? (cl < p2.l + p2.w * (1 - PM_SWAP)) : (ct < p2.t + p2.h * (1 - PM_SWAP))) {
+            grid.insertBefore(D.fld, prev); did = changed = true;
+          }
+        }
+      }
+      if (!did) break;
+    }
+    if (changed) {
+      kidsAll.forEach((f) => {
+        if (f === D.fld) return;
+        const fr = first.get(f); if (!fr) return;
+        const lr = f.getBoundingClientRect(), dx = fr.left - lr.left, dy = fr.top - lr.top;
+        if (dx || dy) { f.style.transition = "none"; f.style.transform = `translate(${dx}px,${dy}px)`; requestAnimationFrame(() => { f.style.transition = "transform .15s var(--ease,ease)"; f.style.transform = ""; }); }
+      });
+    }
+  }
+  function pmFieldKey(e) {
+    if (e.key === "Escape" && pmFDrag) { e.preventDefault(); pmFieldCancel(); }
+  }
+  function pmFieldCancel() {
+    const D = pmFDrag; if (!D) return; pmFDrag = null;
+    window.removeEventListener("pointermove", pmFieldMove);
+    window.removeEventListener("keydown", pmFieldKey, true);
+    try { D.clone.remove(); } catch (_) {}
+    D.grid.insertBefore(D.fld, D.next);                    // zurück an Ausgangsposition
+    D.fld.classList.remove("pm-fph");
+    D.grid.querySelectorAll(".fld").forEach((f) => { f.style.transition = ""; f.style.transform = ""; });
+  }
+  function pmFieldUp() {
+    if (!pmFDrag) return;
+    const D = pmFDrag; pmFDrag = null;
+    window.removeEventListener("pointermove", pmFieldMove);
+    window.removeEventListener("keydown", pmFieldKey, true);
+    try { D.clone.remove(); } catch (_) {}
+    D.fld.classList.remove("pm-fph");
+    const ids = [...D.grid.querySelectorAll(".fld")].map((f) => +f.dataset.frow).filter(Boolean);
+    const byId = new Map((D.p.fields || []).map((f) => [f.id, f]));
+    D.p.fields = ids.map((id) => byId.get(id)).filter(Boolean);
+    api.reorderPartnerFields(D.p.id, ids).catch((e) => toast(e.message, true));
+    setTimeout(() => { D.grid.querySelectorAll(".fld").forEach((f) => { f.style.transition = ""; f.style.transform = ""; }); }, 220);
   }
   function pmConfirmDelete(p) {
     if (pmScrim.querySelector(".pm-confirm")) return;
