@@ -77,7 +77,7 @@ function mount(root, ctx) {
   // Zentrale Speicher-Warteschlange: sammelt Änderungen und schickt sie kurz danach ab.
   // Beim Verlassen der Seite (F5) wird alles Ausstehende sofort per keepalive gesendet,
   // damit nach dem Reload IMMER der zuletzt eingetippte Stand da ist.
-  const pending = { contracts: {}, posten: {}, categories: {} };
+  const pending = { contracts: {}, posten: {}, categories: {}, partnerFields: {}, partners: {} };
   const flushSoon = debounceF(async () => {
     const cs = pending.contracts, ps = pending.posten, cats = pending.categories;
     pending.contracts = {}; pending.posten = {}; pending.categories = {};
@@ -93,6 +93,8 @@ function mount(root, ctx) {
       for (const [id, patch] of Object.entries(pending.contracts)) fetch(`/api/contracts/contract/${id}`, { ...o, body: JSON.stringify(patch) });
       for (const [id, active] of Object.entries(pending.posten)) fetch(`/api/ledger/posten/${id}`, { ...o, body: JSON.stringify({ active: +active }) });
       for (const [id, patch] of Object.entries(pending.categories)) fetch(`/api/contracts/category/${id}`, { ...o, body: JSON.stringify(patch) });
+      for (const [fid, patch] of Object.entries(pending.partnerFields)) fetch(`/api/contracts/partner/field/${fid}`, { ...o, body: JSON.stringify(patch) });
+      for (const [id, patch] of Object.entries(pending.partners)) fetch(`/api/contracts/partner/${id}`, { ...o, body: JSON.stringify(patch) });
     } catch (_) {}
   }
   window.addEventListener("beforeunload", flushBeacon);
@@ -129,13 +131,6 @@ function mount(root, ctx) {
 
   async function refresh() { data = await api.contractsState(); (data.contracts || []).forEach((c) => { if (c.raw_status === undefined) c.raw_status = c.status === "gekündigt" ? "gekündigt" : "aktiv"; }); render(); }
   // Leichter Hintergrund-Refresh: aktualisiert Kacheln + Tabelle live, ohne das offene Modal/Detail zu stören
-  async function refreshBg() {
-    try {
-      data = await api.contractsState();
-      (data.contracts || []).forEach((c) => { if (c.raw_status === undefined) c.raw_status = c.status === "gekündigt" ? "gekündigt" : "aktiv"; });
-      renderKpi(); renderTable();
-    } catch (_) {}
-  }
   const today = () => (data.today ? parseISO(data.today) : new Date());
   // lokale Neuberechnung eines Vertrags (Stichtag/Status/effektiv aktiv) – wie das Backend
   function recompute(c) {
@@ -618,43 +613,6 @@ function mount(root, ctx) {
   // Muster wie „Gehört zu Haushaltsposten": bestehenden Partner wählen ODER „➕ neu anlegen"
   // (dann Textfeld). Bei gesetztem Partner ist das Neu-Feld mit dem aktuellen Namen
   // vorbefüllt (Tippfehler korrigieren). Backend unberührt – Partner bleibt reiner vendor-Text.
-  function vendorNames() {
-    return [...new Set((data.contracts || []).map((c) => c.vendor).filter(Boolean))]
-      .sort((a, b) => a.localeCompare(b, "de"));
-  }
-  function vendorPickerHTML(current) {
-    const cur = (current || "").trim();
-    const names = vendorNames();
-    if (cur && !names.includes(cur)) names.push(cur);
-    names.sort((a, b) => a.localeCompare(b, "de"));
-    const none = names.length === 0;   // gar keine Partner -> direkt in den „neu anlegen"-Modus
-    const opts = names.map((n) => `<option${n === cur ? " selected" : ""}>${esc(n)}</option>`).join("");
-    const ph = cur ? "" : `<option value=""${none ? "" : " selected"} disabled>Partner wählen …</option>`;
-    return `<div class="vpick">
-      <select class="vpick-sel">${ph}${opts}<option value="__new"${none ? " selected" : ""}>➕ Neuen Vertragspartner anlegen …</option></select>
-      <div class="vpick-new"${none ? "" : " hidden"}><input class="vpick-in" placeholder="Name des Partners" value="${esc(cur)}"></div>
-    </div>`.replace(/\n\s+/g, "");
-  }
-  function readVendor(scope) {
-    const p = scope.querySelector(".vpick");
-    if (!p) return "";
-    const sel = p.querySelector(".vpick-sel");
-    if (sel.value === "__new") return (p.querySelector(".vpick-in").value || "").trim();
-    return sel.value === "" ? "" : sel.value;
-  }
-  // opts: { onLive?, onFlush?, live? } – im Detail-Panel live, im Anlegen-Dialog nur Auslesen bei Submit
-  function wireVendorPicker(scope, opts = {}) {
-    const p = scope.querySelector(".vpick");
-    if (!p) return;
-    const sel = p.querySelector(".vpick-sel"), nw = p.querySelector(".vpick-new"), inp = p.querySelector(".vpick-in");
-    const showNew = (on) => { nw.hidden = !on; if (on) setTimeout(() => { try { inp.focus(); inp.select(); } catch (_) {} }, 0); };
-    sel.addEventListener("change", () => {
-      if (sel.value === "__new") { showNew(true); if (opts.onLive) opts.onLive(); }
-      else { showNew(false); if (opts.onLive) opts.onLive(); if (opts.onFlush) opts.onFlush(); }
-    });
-    if (opts.live && opts.onLive) inp.addEventListener("input", opts.onLive);
-    if (opts.onFlush) inp.addEventListener("blur", opts.onFlush);
-  }
 
   function partnerSelectHTML(it) {
     const opts = (data.partners || []).map((p) => `<option value="${p.id}"${p.id === it.partner_id ? " selected" : ""}>${esc(p.name)}</option>`).join("");
@@ -1244,6 +1202,10 @@ function mount(root, ctx) {
   const PM_MULTI = (t) => t === "Adresse" || t === "Freitext";
   const PM_FTYPES = ["Text", "Zahl", "Datum", "E-Mail", "URL", "Telefon", "Adresse", "Freitext"];
   const pmSaveT = {};
+  function pmClearPending(fid, key) {   // Puffer-Eintrag nach erfolgreichem Speichern räumen
+    const e = pending.partnerFields[fid]; if (!e) return;
+    delete e[key]; if (!Object.keys(e).length) delete pending.partnerFields[fid];
+  }
 
   function buildPmScrim() {
     pmScrim = el("div", "cx-pmscrim");
@@ -1323,7 +1285,7 @@ function mount(root, ctx) {
     box.innerHTML = `<div class="detail-in"><div class="dhead"><div class="bigav" style="background:${p.color}">${esc((p.name[0] || "?").toUpperCase())}</div>`
       + `<div class="ht"><input class="nm-edit" id="cxPmName" value="${esc(p.name)}" placeholder="Name / Firmenbezeichnung">`
       + `<div class="stamm"><select id="cxPmType">${sel(tOpts, p.ptype)}</select><select id="cxPmBranch">${sel(bOpts, p.branch)}</select>`
-      + `<button class="pm-del" id="cxPmDel" title="Partner löschen">Löschen</button></div></div></div>`
+      + `<button class="pm-merge" id="cxPmMerge" title="Mit anderem Partner zusammenführen">Zusammenführen</button><button class="pm-del" id="cxPmDel" title="Partner löschen">Löschen</button></div></div></div>`
       + `<div class="fgrid">${(p.fields || []).map(pmFieldHTML).join("")}</div>`
       + `<div class="addfield" id="cxPmAddField">＋ Eigenes Feld hinzufügen</div>`
       + `<div class="typemenu" id="cxPmTypes">` + PM_FTYPES.map((t) => `<span class="tp" data-nt="${t}">${t}</span>`).join("") + `</div>`
@@ -1347,21 +1309,31 @@ function mount(root, ctx) {
       if (act) updateDetailHead(act);
       document.querySelectorAll("#e_partner option").forEach((o) => { if (o.value === String(p.id)) o.textContent = newName; });
       // Backend nur gepuffert speichern
+      pending.partners[p.id] = { name: newName };
       clearTimeout(pmSaveT.__name);
-      pmSaveT.__name = setTimeout(() => api.updatePartner(p.id, { name: newName }).catch((e) => toast(e.message, true)), 400);
+      pmSaveT.__name = setTimeout(() => api.updatePartner(p.id, { name: newName }).then(() => { delete pending.partners[p.id]; }).catch((e) => toast(e.message, true)), 400);
     });
     box.querySelector("#cxPmType").addEventListener("change", (e) => { p.ptype = e.target.value; api.updatePartner(p.id, { ptype: e.target.value }).catch((x) => toast(x.message, true)); });
     box.querySelector("#cxPmBranch").addEventListener("change", (e) => { p.branch = e.target.value; api.updatePartner(p.id, { branch: e.target.value }).catch((x) => toast(x.message, true)); });
     box.querySelector("#cxPmDel").addEventListener("click", () => pmConfirmDelete(p));
+    box.querySelector("#cxPmMerge").addEventListener("click", () => pmMergeDialog(p));
     box.querySelectorAll("[data-fid]").forEach((inp) => {
       const fid = +inp.dataset.fid;
-      const save = () => { clearTimeout(pmSaveT[fid]); pmSaveT[fid] = setTimeout(() => api.updatePartnerField(fid, { value: inp.value }).catch((e) => toast(e.message, true)), 450); };
+      const save = () => {
+        const f = (p.fields || []).find((x) => x.id === fid); if (f) f.value = inp.value;   // sofort lokal → bleibt beim Partnerwechsel erhalten
+        pending.partnerFields[fid] = { ...(pending.partnerFields[fid] || {}), value: inp.value };   // Notfall-Puffer für F5/Entladen
+        clearTimeout(pmSaveT[fid]); pmSaveT[fid] = setTimeout(() => api.updatePartnerField(fid, { value: inp.value }).then(() => pmClearPending(fid, "value")).catch((e) => toast(e.message, true)), 450);
+      };
       inp.addEventListener("input", save); inp.addEventListener("blur", save);
       if (inp.classList.contains("grow")) { inp.addEventListener("focus", () => pmGrow(inp)); inp.addEventListener("blur", () => { inp.style.height = ""; inp.style.overflow = ""; }); }
     });
     box.querySelectorAll("[data-flabel]").forEach((inp) => {
       const fid = +inp.dataset.flabel;
-      inp.addEventListener("change", () => api.updatePartnerField(fid, { label: inp.value }).catch((e) => toast(e.message, true)));
+      inp.addEventListener("change", () => {
+        const f = (p.fields || []).find((x) => x.id === fid); if (f) f.label = inp.value;   // sofort lokal → bleibt beim Partnerwechsel erhalten
+        pending.partnerFields[fid] = { ...(pending.partnerFields[fid] || {}), label: inp.value };   // Notfall-Puffer für F5/Entladen
+        api.updatePartnerField(fid, { label: inp.value }).then(() => pmClearPending(fid, "label")).catch((e) => toast(e.message, true));
+      });
     });
     box.querySelectorAll("[data-fdel]").forEach((b) => b.addEventListener("click", async () => { try { await api.deletePartnerField(+b.dataset.fdel); await pmLoad(); } catch (e) { toast(e.message, true); } }));
     const menu = box.querySelector("#cxPmTypes");
@@ -1380,7 +1352,7 @@ function mount(root, ctx) {
     if (e.button != null && e.button !== 0) return;
     e.preventDefault();
     const fld = e.target.closest(".fld"); if (!fld) return;
-    const bound = pmScrim.querySelector(".cx-pmdetail");               // Klon-Host + Klemm-Bereich
+    const bound = pmScrim.querySelector(".cx-pmdetail");               // Klon-Host + Klemm-Bereich + Scroll-Container
     const r = fld.getBoundingClientRect(), clone = fld.cloneNode(true);
     const s = fld.querySelectorAll("input,textarea"), c = clone.querySelectorAll("input,textarea");
     s.forEach((el2, i) => { if (c[i]) c[i].value = el2.value; });
@@ -1388,7 +1360,7 @@ function mount(root, ctx) {
     clone.style.width = r.width + "px"; clone.style.left = r.left + "px"; clone.style.top = r.top + "px";
     bound.appendChild(clone);                                          // Klon im Detail-Scope ⇒ 1:1-Optik
     fld.classList.add("pm-fph");
-    pmFDrag = { fld, grid, p, clone, bound, dx: e.clientX - r.left, dy: e.clientY - r.top, next: fld.nextSibling };
+    pmFDrag = { fld, grid, p, clone, bound, dx: e.clientX - r.left, dy: e.clientY - r.top, next: fld.nextSibling, lastX: e.clientX, lastY: e.clientY, raf: 0 };
     window.addEventListener("pointermove", pmFieldMove);
     window.addEventListener("pointerup", pmFieldUp, { once: true });
     window.addEventListener("keydown", pmFieldKey, true);
@@ -1396,11 +1368,17 @@ function mount(root, ctx) {
   }
   function pmFieldMove(e) {
     if (!pmFDrag) return;
-    const D = pmFDrag, clone = D.clone, grid = D.grid;
+    pmFDrag.lastX = e.clientX; pmFDrag.lastY = e.clientY;
+    pmFieldApply();
+    pmFieldAutoScroll();
+  }
+  function pmFieldApply() {
+    const D = pmFDrag; if (!D) return;
+    const clone = D.clone, grid = D.grid;
     // Position berechnen + auf die Detailspalte klemmen (nicht über die Kanten hinaus)
     const b = D.bound.getBoundingClientRect();
     const cw = clone.offsetWidth, ch = clone.offsetHeight;
-    let left = e.clientX - D.dx, top = e.clientY - D.dy;
+    let left = D.lastX - D.dx, top = D.lastY - D.dy;
     left = Math.max(b.left, Math.min(left, b.right - cw));
     top  = Math.max(b.top,  Math.min(top,  b.bottom - ch));
     clone.style.left = left + "px"; clone.style.top = top + "px";
@@ -1446,11 +1424,26 @@ function mount(root, ctx) {
       });
     }
   }
+  function pmFieldAutoScroll() {
+    const D = pmFDrag; if (!D || D.raf) return;
+    const sc = D.bound, EDGE = 56;                          // Randzone wie Vermögen ⇒ Scroll beginnt vorab
+    const step = () => {
+      if (!pmFDrag) return;
+      const rr = sc.getBoundingClientRect(), yy = D.lastY; let dd = 0;
+      if (yy < rr.top + EDGE) dd = -1; else if (yy > rr.bottom - EDGE) dd = 1;
+      if (dd === 0) { D.raf = 0; return; }
+      const di = dd < 0 ? (rr.top + EDGE - yy) : (yy - (rr.bottom - EDGE)); const sp = Math.min(20, 4 + di / 2.4);
+      const before = sc.scrollTop; sc.scrollTop = Math.max(0, before + dd * sp);
+      if (sc.scrollTop !== before) { pmFieldApply(); D.raf = requestAnimationFrame(step); } else D.raf = 0;
+    };
+    D.raf = requestAnimationFrame(step);
+  }
   function pmFieldKey(e) {
     if (e.key === "Escape" && pmFDrag) { e.preventDefault(); pmFieldCancel(); }
   }
   function pmFieldCancel() {
     const D = pmFDrag; if (!D) return; pmFDrag = null;
+    if (D.raf) cancelAnimationFrame(D.raf);
     window.removeEventListener("pointermove", pmFieldMove);
     window.removeEventListener("keydown", pmFieldKey, true);
     try { D.clone.remove(); } catch (_) {}
@@ -1461,6 +1454,7 @@ function mount(root, ctx) {
   function pmFieldUp() {
     if (!pmFDrag) return;
     const D = pmFDrag; pmFDrag = null;
+    if (D.raf) cancelAnimationFrame(D.raf);
     window.removeEventListener("pointermove", pmFieldMove);
     window.removeEventListener("keydown", pmFieldKey, true);
     try { D.clone.remove(); } catch (_) {}
@@ -1470,6 +1464,31 @@ function mount(root, ctx) {
     D.p.fields = ids.map((id) => byId.get(id)).filter(Boolean);
     api.reorderPartnerFields(D.p.id, ids).catch((e) => toast(e.message, true));
     setTimeout(() => { D.grid.querySelectorAll(".fld").forEach((f) => { f.style.transition = ""; f.style.transform = ""; }); }, 220);
+  }
+  function pmMergeDialog(p) {
+    if (pmScrim.querySelector(".pm-confirm")) return;
+    const others = (pm.partners || []).filter((x) => x.id !== p.id);
+    if (!others.length) { toast("Es gibt keinen anderen Partner zum Zusammenführen.", true); return; }
+    const c = el("div", "pm-confirm");
+    c.innerHTML = `<div class="pm-cbox pm-mergebox">`
+      + `<div class="lead"><b>${esc(p.name)}</b> zusammenführen mit …</div>`
+      + `<label class="fl">Diesen Partner eingliedern (wird danach entfernt)</label>`
+      + `<select id="pmMergeSel"><option value="">— Partner wählen —</option>`
+      + others.map((o) => `<option value="${o.id}">${esc(o.name)}${o.branch ? " · " + esc(o.branch) : ""}</option>`).join("")
+      + `</select>`
+      + `<p class="hint">Der gewählte Partner wird in <b style="color:var(--text-dim)">${esc(p.name)}</b> eingegliedert und danach entfernt. Seine Verträge (samt Dokumenten) wandern hierher; fehlende feste Felder werden aufgefüllt, abweichende Werte und eigene Felder bleiben als Zusatzfelder erhalten. Nicht umkehrbar.</p>`
+      + `<div class="pm-cbtns"><button class="no">Abbrechen</button><button class="go" id="pmMergeGo" disabled>Zusammenführen</button></div></div>`;
+    pmScrim.querySelector(".cx-pm").appendChild(c);
+    const selEl = c.querySelector("#pmMergeSel"), go = c.querySelector("#pmMergeGo");
+    selEl.addEventListener("change", () => { go.disabled = !selEl.value; });
+    c.querySelector(".no").addEventListener("click", () => c.remove());
+    c.addEventListener("click", (e) => { if (e.target === c) c.remove(); });
+    go.addEventListener("click", async () => {
+      const fromId = +selEl.value; if (!fromId) return;   // gewählter = Quelle (verschwindet), p.id = Ziel (bleibt)
+      c.remove();
+      try { await api.mergePartners(fromId, p.id); pm.selId = p.id; await pmLoad(); }
+      catch (e) { toast(e.message, true); }
+    });
   }
   function pmConfirmDelete(p) {
     if (pmScrim.querySelector(".pm-confirm")) return;

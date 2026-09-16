@@ -521,31 +521,78 @@ def reorder_partners(conn, ids):
 
 
 def merge_partners(conn, from_id, into_id):
+    """Führt den Partner `from_id` in `into_id` zusammen. `into_id` bleibt bestehen,
+    `from_id` wird danach entfernt. Verlustfrei: Werte, die nicht ins Ziel passen,
+    werden als eigene Zusatzfelder erhalten statt verworfen."""
     from_id, into_id = int(from_id), int(into_id)
     if from_id == into_id:
         raise ValueError("Quelle und Ziel sind identisch.")
-    if not conn.execute("SELECT id FROM contract_partners WHERE id=?", (into_id,)).fetchone():
+    into_row = conn.execute("SELECT * FROM contract_partners WHERE id=?", (into_id,)).fetchone()
+    if not into_row:
         raise ValueError("Ziel-Partner nicht gefunden.")
-    if not conn.execute("SELECT id FROM contract_partners WHERE id=?", (from_id,)).fetchone():
+    from_row = conn.execute("SELECT * FROM contract_partners WHERE id=?", (from_id,)).fetchone()
+    if not from_row:
         raise ValueError("Quell-Partner nicht gefunden.")
-    # Verträge umhängen
+    from_name = crypto.decrypt(from_row["name_enc"]) if from_row["name_enc"] else ""
+
+    def _dec(v):
+        return crypto.decrypt(v) if v else ""
+
+    def _norm(v):
+        return _dec(v).strip().casefold()
+
+    # Verträge (samt ihrer Dokumente) auf das Ziel umhängen
     conn.execute("UPDATE contracts SET partner_id=? WHERE partner_id=?", (into_id, from_id))
-    # Leere Ziel-Felder aus der Quelle füllen (Abgleich über core_key)
-    src = {r["core_key"]: r for r in conn.execute(
+
+    # --- Feste Felder über core_key abgleichen ---
+    src_core = {r["core_key"]: r for r in conn.execute(
         "SELECT * FROM partner_fields WHERE partner_id=? AND core_key IS NOT NULL", (from_id,)).fetchall()}
-    for r in conn.execute(
-            "SELECT * FROM partner_fields WHERE partner_id=? AND core_key IS NOT NULL", (into_id,)).fetchall():
-        s = src.get(r["core_key"])
-        if s and s["value_enc"] and not r["value_enc"]:
+    into_core = conn.execute(
+        "SELECT * FROM partner_fields WHERE partner_id=? AND core_key IS NOT NULL", (into_id,)).fetchall()
+    into_core_keys, conflicts = set(), []   # conflicts: (label, ftype, value_enc) → als eigene Felder anhängen
+    for r in into_core:
+        into_core_keys.add(r["core_key"])
+        s = src_core.get(r["core_key"])
+        if not s or not s["value_enc"]:
+            continue
+        if not r["value_enc"]:
+            # Ziel leer → Wert der Quelle übernehmen
             conn.execute("UPDATE partner_fields SET value_enc=? WHERE id=?", (s["value_enc"], r["id"]))
-    # Eigene (nicht-core) Felder der Quelle ans Ziel übernehmen
+        elif _norm(s["value_enc"]) != _norm(r["value_enc"]):
+            # beide gefüllt & verschieden → Ziel behält seinen Wert, Quellwert als Zusatzfeld erhalten
+            base = _dec(r["label_enc"]) or r["core_key"]
+            conflicts.append((f"{base} (von {from_name})", s["ftype"], s["value_enc"]))
+    # core_keys, die nur die Quelle kennt (Robustheit) → ebenfalls als Zusatzfeld erhalten
+    for ck, s in src_core.items():
+        if ck not in into_core_keys and s["value_enc"]:
+            base = _dec(s["label_enc"]) or ck
+            conflicts.append((f"{base} (von {from_name})", s["ftype"], s["value_enc"]))
+
+    # --- Anhängen: eigene Felder der Quelle (Dublette-Check) + Konflikt-Zusatzfelder ---
+    into_own = conn.execute(
+        "SELECT label_enc, value_enc FROM partner_fields WHERE partner_id=? AND is_core=0", (into_id,)).fetchall()
+    existing = {(_norm(o["label_enc"]), _norm(o["value_enc"])) for o in into_own}
     nxt = conn.execute("SELECT COALESCE(MAX(sort)+1,0) s FROM partner_fields WHERE partner_id=?", (into_id,)).fetchone()["s"]
-    for i, r in enumerate(conn.execute(
-            "SELECT * FROM partner_fields WHERE partner_id=? AND is_core=0", (from_id,)).fetchall()):
+
+    def _append(label_enc, ftype, value_enc):
+        nonlocal nxt
         conn.execute(
             "INSERT INTO partner_fields(partner_id,label_enc,ftype,value_enc,is_core,core_key,sort) "
             "VALUES(?,?,?,?,0,NULL,?)",
-            (into_id, r["label_enc"], r["ftype"], r["value_enc"], nxt + i))
+            (into_id, label_enc, ftype if ftype in FTYPES else "Text", value_enc, nxt))
+        nxt += 1
+
+    for r in conn.execute(
+            "SELECT * FROM partner_fields WHERE partner_id=? AND is_core=0", (from_id,)).fetchall():
+        key = (_norm(r["label_enc"]), _norm(r["value_enc"]))
+        if key in existing:
+            continue   # echte Dublette (Label + Wert identisch) überspringen
+        existing.add(key)
+        _append(r["label_enc"], r["ftype"], r["value_enc"])
+
+    for label, ftype, value_enc in conflicts:
+        _append(crypto.encrypt(label[:60]), ftype, value_enc)
+
     conn.execute("DELETE FROM contract_partners WHERE id=?", (from_id,))
     conn.commit()
 
