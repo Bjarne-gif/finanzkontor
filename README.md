@@ -151,6 +151,10 @@ zeigen, optional `ports` entfernen (dann kein Port nach außen).
 
 ## KI-Assistent (lokal)
 
+<img width="261" height="260" alt="image" src="https://github.com/user-attachments/assets/ddf69f56-3b2b-4ffa-b521-3796559b0f80" />
+<img width="261" height="260" alt="image" src="https://github.com/user-attachments/assets/0c7fe136-d12b-4027-a78a-f38bc2fc4f8d" />
+
+
 **Einrichten:** Ollama im selben Docker-Netz wie Finanzkontor betreiben
 (Container-Name `ollama`, siehe Kommentar in `docker-compose.yml`), ein Modell
 installieren (`docker exec -it ollama ollama pull llama3.2`), die `AI_*`-Werte in
