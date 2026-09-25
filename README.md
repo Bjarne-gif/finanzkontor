@@ -4,7 +4,7 @@ Browserbasiertes Tool für Einnahmen, Kosten und Vermögen – selbst gehostet,
 dockerfähig, Daten verschlüsselt. Modularer Aufbau: jede Funktion ist ein
 eigener Baustein, alle laufen im selben Rahmen.
 
-**Stand:** v0.9.7 · Stufen 1–5 abgeschlossen (Ledger, Überschussverwendung,
+**Stand:** v0.12.18 · Stufen 1–5 abgeschlossen (Ledger, Überschussverwendung,
 Vermögen, Verträge & Abos, Dateiverwaltung). Ledger: Kategorien &
 Posten mit Betrag + Intervall (monatlich/jährlich), Beträge kreuzweise
 editierbar, zeilenweises Anlegen direkt in der Tabelle, volle Tastatur-/Tab-
@@ -34,32 +34,13 @@ verwaisen statt zu verschwinden, wenn ein Vertrag entfernt wird.
 
 ## Schnellstart (Docker)
 
-App in Docker installieren:
-
 ```bash
-git clone https://github.com/Bjarne-gif/finanzkontor.git
-cd finanzkontor
 cp .env.example .env      # bei Bedarf anpassen (Port, DATA_DIR)
-docker compose up -d --build
+docker compose up -d
 ```
 
 Dann im Browser: `http://<host>:8000`. Beim ersten Start legst du dein
 Passwort fest.
-
-Status in Docker überprüfen:
-
-```bash
-docker ps -a      # Zeigt alle Container an (auch gestoppte)
-docker stats      # Zeigt die Live-Ressourcennutzung (CPU/RAM) an
-```
-Um den Container sauber zu löschen:
-
-```bash
-cd finanzkontor
-docker compose down -v --rmi all
-cd ..
-sudo rm -rf finanzkontor/
-```
 
 ### Lokal ohne Docker (z. B. direkt auf dem Raspberry Pi)
 
@@ -95,6 +76,13 @@ genügt `source .venv/bin/activate && python3 app.py`.
   Zeile `cryptography==43.0.1` auf `cryptography>=43.0.1` lockern, damit pip ein
   passendes fertiges Paket zieht. Im Docker-Image (Python 3.12) tritt das nicht auf.
 
+## Update auf eine neue Version
+
+Vorher `data/` sichern (DB + `secret.key` gehören zusammen). Dann die neuen
+Dateien übernehmen und `docker compose up -d --build`. Datenbank-Migrationen
+laufen beim Start automatisch – auch über mehrere Versionen hinweg. Eigene
+`docker-compose.yml` und `.env` bleiben unangetastet.
+
 ## Deine Daten liegen in `data/`
 
 Alles Private liegt gebündelt in einem Ordner:
@@ -120,9 +108,9 @@ direkt eine neue an.
 
 ## Hinter Nginx Proxy Manager
 
-Für den Betrieb hinter NPM (kein Port nach außen) – siehe Kommentar in
-`docker-compose.yml`: `ports` entfernen, externes NPM-Netz eintragen,
-Proxy-Host auf `finanzkontor:8000` zeigen.
+Für den Betrieb hinter NPM – siehe Kommentar in `docker-compose.yml`: externes
+NPM-Netz (z. B. `npm-network`) eintragen, Proxy-Host auf `finanzkontor:8000`
+zeigen, optional `ports` entfernen (dann kein Port nach außen).
 
 ## Konfiguration (`.env`)
 
@@ -133,6 +121,29 @@ Proxy-Host auf `finanzkontor:8000` zeigen.
 | `REMEMBER_DAYS` | `30` | Gültigkeit von „merken" |
 | `SECRET_SEED` | *(leer)* | Fester Session-Secret; leer = auto in `data/` |
 | `REQUIRE_PASSWORD_UNLOCK` | `false` | Später: DB erst nach Passwort entsperren |
+| `AI_PROVIDER` | `ollama` | LLM-Anbieter (aktuell nur Ollama) |
+| `AI_BASE_URL` | `http://ollama:11434` | Interne Adresse des LLM-Servers |
+| `AI_MODEL` | `llama3.2` | Modellname in Ollama; für Scans/Fotos ein Modell mit Bildverständnis |
+| `AI_TIMEOUT` | `400` | Sekunden je KI-Anfrage (lokale Modelle sind langsam) |
+
+## KI-Assistent (lokal)
+
+**Einrichten:** Ollama im selben Docker-Netz wie Finanzkontor betreiben
+(Container-Name `ollama`, siehe Kommentar in `docker-compose.yml`), ein Modell
+installieren (`docker exec -it ollama ollama pull llama3.2`), die `AI_*`-Werte in
+der `.env` prüfen und `docker compose up -d --build`. Danach in der App oben
+rechts auf **AI** klicken, die KI einschalten und die Bereiche freigeben.
+Verbindung prüfen: eingeloggt `/api/ai/ping` aufrufen (erwartet `ok: true`).
+
+Die KI liest nur, was du im KI-Fenster freigibst, und ändert nie etwas. Zu jeder
+Frage bekommt sie die freigegebenen Bereiche vollständig (jeder Eintrag einzeln,
+mit Kurz-IDs für die Verknüpfungen). Bereiche: Haushalt, Vermögen, Verträge,
+Vertragspartner (alle Felder), Dokumente (Inhalt der Dateien: Text aus PDF,
+Word, OpenDocument, Excel, txt; Scans und Fotos als Bild – nur bei Modellen mit
+Bildverständnis wie `llama3.2-vision`, `qwen2.5vl`, `gemma3`). Dokumente werden
+dafür nur im Arbeitsspeicher entschlüsselt. Was genau rausgeht, zeigt eingeloggt
+`/api/ai/uebergabe` im Browser (`?alle=1` zeigt alle Bereiche). Das Kontextfenster
+des Modells wird automatisch passend gesetzt.
 
 ## Aufbau
 
@@ -144,6 +155,8 @@ modules/ledger/   Baustein Stufe 1 (Ledger: Kategorien, Posten, Summen)
 modules/split/    Baustein Stufe 2 (Überschussverwendung: Töpfe + Verteilung)
 modules/assets/   Baustein Stufe 3 (Vermögen: Klassen/Positionen, Kennzahlen)
 modules/contracts/ Baustein Stufe 4+5 (Verträge & Abos + Dateiverwaltung, verschlüsselte Dokumente)
+modules/ai/       KI-Anbindung (lokal via Ollama): vollständige Datenübergabe (uebergabe.py), Dokument-Inhalte (dokumente.py), Einstellungen, Chat
 static/           Frontend (SPA): index.html, css/, js/modules/*.js
+static/js/vendor/three.min.js  three.js r128 (MIT) für die 3D-Münze im KI-Fenster, lokal mitgeliefert
 data/             Private Daten inkl. data/docs/<db>/ (nicht im Git)
 ```

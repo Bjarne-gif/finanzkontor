@@ -13,22 +13,28 @@ services:
       - default
 
 # --- Ein Service, mehr braucht es nicht. -------------------------------------
+# So wie oben läuft die App eigenständig (eigenes Netz, Port 8000). Die KI ist
+# optional und in der App standardmäßig aus.
 #
-# Später hinter Nginx Proxy Manager (max. Sicherheit, kein Port nach außen):
-#   1) Den 'ports:'-Block oben entfernen (dann nur intern erreichbar).
-#   2) Das externe NPM-Netz eintragen, z. B.:
+# Variante mit Nginx Proxy Manager + lokaler KI (Ollama) im selben Docker-Netz,
+# z. B. "npm-network" (so läuft es beim Autor):
 #
-#        networks:
-#          - npm
-#
-#      und unten:
+#   1) Unter dem Service 'networks: - default' ersetzen durch:
 #
 #        networks:
-#          npm:
+#          - npm-network
+#
+#   2) Den Block 'networks:' ganz unten ersetzen durch:
+#
+#        networks:
+#          npm-network:
 #            external: true
-#            name: <name-eures-npm-netzes>
+#            name: npm-network
 #
-#   3) Im NPM einen Proxy-Host auf  finanzkontor:8000  zeigen lassen.
+#   3) Ollama muss im selben Netz laufen (Container-Name "ollama"). Finanzkontor
+#      spricht es dann intern über  http://ollama:11434  an (AI_BASE_URL in .env).
+#   4) Optional den 'ports:'-Block entfernen, wenn nur NPM zugreifen soll, und im
+#      NPM einen Proxy-Host auf  finanzkontor:8000  zeigen lassen.
 # -----------------------------------------------------------------------------
 
 networks:

@@ -7,12 +7,13 @@
   <title>Finanzkontor</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Pinyon+Script&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/themes.css" />
   <link rel="stylesheet" href="css/base.css" />
   <link rel="stylesheet" href="css/ledger.css" />
   <link rel="stylesheet" href="css/assets.css" />
   <link rel="stylesheet" href="css/contracts.css" />
+  <link rel="stylesheet" href="css/ai.css" />
 </head>
 <body>
 
@@ -97,6 +98,9 @@
         </div>
       </div>
 
+      <!-- KI-Assistent -->
+      <button class="btn icon ai-btn" id="ai-btn" title="KI-Assistent">AI</button>
+
       <!-- Sperren -->
       <button class="btn icon" id="lock-btn" title="Sperren">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="5" y="10" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.6"/><path d="M8 10V7a4 4 0 018 0v3" stroke="currentColor" stroke-width="1.6"/></svg>
@@ -110,9 +114,10 @@
 
     <!-- Statusleiste -->
     <footer class="statusbar">
-      <span class="s-item"><span class="v" id="s-version">v0.11.11</span></span>
+      <span class="s-item"><span class="v" id="s-version">v0.12.18</span></span>
       <span class="s-item"><span class="v" id="s-stage">Stufe 0</span></span>
       <span class="s-item push"><span class="k">DB</span><span class="v" id="s-db">—</span></span>
+      <span class="s-item ai-stat" id="s-ai" hidden><span class="ai-dot" id="s-ai-dot"></span><span class="k">KI</span></span>
       <span class="s-item"><span class="lock">🔒</span><span class="v">verschlüsselt</span></span>
     </footer>
   </div>

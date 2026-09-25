@@ -4,6 +4,7 @@
 import { api } from "./api.js";
 import { store, bus } from "./store.js";
 import { initTheme, renderThemeMenu } from "./themes.js";
+import { initAi, loadSettings as aiLoadSettings, setAiLocked } from "./ai.js";
 
 const $ = (s) => document.querySelector(s);
 
@@ -208,6 +209,7 @@ export async function rehydrate() {
 /* ---------- Zugang / Views ---------- */
 function showGate(mode) {
   $("#app").classList.remove("show");
+  setAiLocked(true);                       // Sperre gilt auch für Chat/Konfig (liegen außerhalb #app)
   const gate = $("#gate");
   gate.classList.add("show");
   const isSetup = mode === "setup";
@@ -228,6 +230,8 @@ async function showApp() {
   $("#app").classList.add("show");
   await rehydrate();
   restoreOpenPop();
+  setAiLocked(false);
+  aiLoadSettings();                        // auch nach dem Entsperren frisch laden
 }
 
 async function submitGate() {
@@ -263,6 +267,7 @@ async function boot() {
   $("#db-new-btn").onclick = createDb;
   $("#db-new-name").addEventListener("keydown", (e) => { if (e.key === "Enter") createDb(); });
   $("#lock-btn").onclick = lock;
+  initAi({ api, bus, toast });
 
   try {
     const s = await api.session();

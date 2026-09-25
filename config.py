@@ -3,8 +3,8 @@ import os
 from pathlib import Path
 
 APP_NAME = "Finanzkontor"
-APP_VERSION = "0.11.11"
-STAGE = "Vertragspartner-Verwaltung"
+APP_VERSION = "0.12.18"
+STAGE = "KI-Integration"
 
 # Verzeichnis für ALLE privaten Daten (DB-Dateien + Keyfile).
 # Umzug = einfach diesen Ordner mitnehmen.
@@ -31,3 +31,15 @@ REQUIRE_PASSWORD_UNLOCK = os.environ.get("REQUIRE_PASSWORD_UNLOCK", "false").low
 
 # Standardname der ersten Datenbank.
 DEFAULT_DB_NAME = "haushalt.db"
+
+# --- KI-Anbindung (lokales LLM, LAN-only). Alles über .env steuerbar. ---
+# Provider-Weiche: aktuell nur "ollama". Weitere Adapter (z. B. openai-kompatibel)
+# lassen sich später additiv nachrüsten, ohne den Rest anzufassen.
+AI_PROVIDER = os.environ.get("AI_PROVIDER", "ollama").strip().lower()
+# Interne Adresse des LLM-Servers. Am saubersten: LLM-Container im selben Docker-Network,
+# dann http und ohne Nginx-Umweg, z. B. http://ollama:11434
+AI_BASE_URL = os.environ.get("AI_BASE_URL", "http://ollama:11434").strip()
+# Modellname, wie im LLM-Server hinterlegt (z. B. llama3.2, mistral).
+AI_MODEL = os.environ.get("AI_MODEL", "llama3.2").strip()
+# Timeout für LLM-Anfragen in Sekunden (schwache lokale Modelle können langsam sein).
+AI_TIMEOUT = int(os.environ.get("AI_TIMEOUT", "400"))

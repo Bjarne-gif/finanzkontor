@@ -26,6 +26,14 @@ export const api = {
   selectDb:     (name)         => req("POST", "/api/databases/select", { name }),
   createDb:     (name)         => req("POST", "/api/databases/create", { name }),
 
+  // KI (Kontext-Layer + Anbindung)
+  aiSettings:    ()      => req("GET",  "/api/ai/settings"),
+  aiSetSettings: (patch) => req("POST", "/api/ai/settings", patch),
+  aiPing:        ()      => req("GET",  "/api/ai/ping"),
+  aiAsk:         (frage) => req("POST", "/api/ai/ask", { frage }),
+  aiChat:        ()      => req("GET",  "/api/ai/chat"),
+  aiClearChat:   ()      => req("DELETE", "/api/ai/chat"),
+
   // Ledger (Stufe 1)
   ledgerState:      ()          => req("GET",  "/api/ledger/state"),
   addCategory:      (data)      => req("POST", "/api/ledger/category", data),

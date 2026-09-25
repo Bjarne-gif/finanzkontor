@@ -3,3 +3,4 @@ from modules import ledger  # noqa: F401
 from modules import split   # noqa: F401
 from modules import assets  # noqa: F401
 from modules import contracts  # noqa: F401
+from modules import ai  # noqa: F401
