@@ -1,3 +1,5 @@
+<img width="2394" height="1193" alt="image" src="https://github.com/user-attachments/assets/279775f7-9c33-4532-9570-40276e793fa7" />
+
 # Finanzkontor
 
 Browserbasiertes Tool für Einnahmen, Kosten und Vermögen – selbst gehostet,
@@ -32,11 +34,32 @@ bis"), verwaltet Vertragskategorien, Status/Pause und Dokumente. Stufe 5
 eingebettetem PDF-Viewer, Umbenennen und Drag-Umhängen/Sortieren; Dokumente
 verwaisen statt zu verschwinden, wenn ein Vertrag entfernt wird.
 
-## Schnellstart (Docker)
+## App in Docker installieren:
 
 ```bash
+git clone https://github.com/Bjarne-gif/finanzkontor.git
+cd finanzkontor
 cp .env.example .env      # bei Bedarf anpassen (Port, DATA_DIR)
+docker compose up -d --build
 docker compose up -d
+```
+
+Dann im Browser: `http://<host>:8000`. Beim ersten Start legst du dein
+Passwort fest.
+
+Status in Docker überprüfen:
+
+```bash
+docker ps -a      # Zeigt alle Container an (auch gestoppte)
+docker stats      # Zeigt die Live-Ressourcennutzung (CPU/RAM) an
+```
+Um den Container sauber zu löschen:
+
+```bash
+cd finanzkontor
+docker compose down -v --rmi all
+cd ..
+sudo rm -rf finanzkontor/
 ```
 
 Dann im Browser: `http://<host>:8000`. Beim ersten Start legst du dein
